@@ -35,6 +35,7 @@ export default function RegisterPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const submittingRef = useRef(false);
+  const familySize = members.length + 1;
 
   const addMember = (type: "spouse" | "child") => {
     if (type === "spouse" && members.some((m) => m.type === "spouse")) return;
@@ -137,6 +138,15 @@ export default function RegisterPage() {
                 <input name="residence_country" defaultValue="India" className={inputCls} />
               </Field>
             </div>
+            <Field label="Your meal preference">
+              <select name="primary_meal_pref" className={inputCls}>
+                <option value="">Select...</option>
+                <option value="veg">Vegetarian</option>
+                <option value="non-veg">Non-vegetarian</option>
+                <option value="vegan">Vegan</option>
+                <option value="jain">Jain</option>
+              </select>
+            </Field>
           </Section>
 
           {/* Section 2: Family */}
@@ -430,28 +440,31 @@ export default function RegisterPage() {
           </Section>
 
           {/* Section 6: Event participation */}
-          <Section title="6. Event participation">
-            <YesNo name="lunch_jul17" label="Lunch on 17 July (arrival day)?" />
-            <YesNo name="lunch_jul19" label="Lunch on 19 July (before checkout)?" />
-            <YesNo
+          <Section
+            title="6. Event participation"
+            subtitle="For each option, please tell us how many people from your family will attend so the resort can plan accurately."
+          >
+            <YesNoPax
+              name="lunch_jul17"
+              label="Lunch on 17 July (arrival day)?"
+              maxFamilySize={familySize}
+            />
+            <YesNoPax
+              name="lunch_jul19"
+              label="Lunch on 19 July (before checkout)?"
+              maxFamilySize={familySize}
+            />
+            <YesNoPax
               name="trek_jul18"
               label="Trek on 18 July at 7:30 AM — opt in?"
+              maxFamilySize={familySize}
             />
-            <YesNo
+            <YesNoPax
               name="boat_jul18"
               label="Boat trip on 18 July at 3:30 PM — opt in?"
               hint="Total duration ~2.5 hrs (1.5 hr boat ride + ~30 min travel each way)."
+              maxFamilySize={familySize}
             />
-
-            <Field label="Your meal preference">
-              <select name="primary_meal_pref" className={inputCls}>
-                <option value="">Select...</option>
-                <option value="veg">Vegetarian</option>
-                <option value="non-veg">Non-vegetarian</option>
-                <option value="vegan">Vegan</option>
-                <option value="jain">Jain</option>
-              </select>
-            </Field>
 
             <Field label="Allergies / dietary notes">
               <input name="primary_allergies" className={inputCls} />
@@ -574,25 +587,66 @@ function AnimatedDots() {
   );
 }
 
-function YesNo({
+function YesNoPax({
   name,
   label,
   hint,
+  maxFamilySize,
 }: {
   name: string;
   label: string;
   hint?: string;
+  maxFamilySize: number;
 }) {
+  const [yes, setYes] = useState(false);
+  const [pax, setPax] = useState(1);
+
   return (
     <Field label={label}>
       <div className="flex gap-4 mt-1">
         <label className="flex items-center gap-2 text-sm">
-          <input type="radio" name={name} value="yes" /> Yes
+          <input
+            type="radio"
+            name={name}
+            value="yes"
+            checked={yes}
+            onChange={() => {
+              setYes(true);
+              if (pax < 1) setPax(1);
+            }}
+          />
+          Yes
         </label>
         <label className="flex items-center gap-2 text-sm">
-          <input type="radio" name={name} value="no" defaultChecked /> No
+          <input
+            type="radio"
+            name={name}
+            value="no"
+            checked={!yes}
+            onChange={() => setYes(false)}
+          />
+          No
         </label>
       </div>
+      {yes && (
+        <div className="mt-2 flex items-center gap-2">
+          <label className="text-sm text-zinc-700">How many people?</label>
+          <input
+            type="number"
+            name={`${name}_pax`}
+            min={1}
+            max={Math.max(maxFamilySize, 1)}
+            value={pax}
+            onChange={(e) => setPax(Math.max(1, parseInt(e.target.value, 10) || 1))}
+            className="w-20 rounded-md border border-zinc-300 px-2 py-1 text-sm"
+            required
+          />
+          <span className="text-xs text-zinc-500">
+            (your family size: {maxFamilySize})
+          </span>
+        </div>
+      )}
+      {!yes && <input type="hidden" name={`${name}_pax`} value="0" />}
       {hint && <p className="text-xs text-zinc-500 mt-1">{hint}</p>}
     </Field>
   );

@@ -78,9 +78,13 @@ export async function submitRegistration(formData: FormData) {
     pickup_point_other: (formData.get("pickup_point_other") as string) || null,
 
     lunch_jul17: formData.get("lunch_jul17") === "yes",
+    lunch_jul17_pax: parseInt((formData.get("lunch_jul17_pax") as string) || "0", 10),
     lunch_jul19: formData.get("lunch_jul19") === "yes",
+    lunch_jul19_pax: parseInt((formData.get("lunch_jul19_pax") as string) || "0", 10),
     trek_jul18: formData.get("trek_jul18") === "yes",
+    trek_jul18_pax: parseInt((formData.get("trek_jul18_pax") as string) || "0", 10),
     boat_jul18: formData.get("boat_jul18") === "yes",
+    boat_jul18_pax: parseInt((formData.get("boat_jul18_pax") as string) || "0", 10),
     driver_accommodation_needed:
       formData.get("driver_accommodation_needed") === "yes",
 

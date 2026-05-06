@@ -123,10 +123,22 @@ export default async function FamilyDetailPage({
       </Card>
 
       <Card title="Event participation">
-        <Row label="Lunch 17 Jul" value={family.lunch_jul17 ? "Yes" : "No"} />
-        <Row label="Lunch 19 Jul" value={family.lunch_jul19 ? "Yes" : "No"} />
-        <Row label="Trek (18 Jul, 7:30 AM)" value={family.trek_jul18 ? "Yes" : "No"} />
-        <Row label="Boat trip (18 Jul, 3:30 PM)" value={family.boat_jul18 ? "Yes" : "No"} />
+        <Row
+          label="Lunch 17 Jul"
+          value={family.lunch_jul17 ? `Yes — ${family.lunch_jul17_pax} pax` : "No"}
+        />
+        <Row
+          label="Lunch 19 Jul"
+          value={family.lunch_jul19 ? `Yes — ${family.lunch_jul19_pax} pax` : "No"}
+        />
+        <Row
+          label="Trek (18 Jul, 7:30 AM)"
+          value={family.trek_jul18 ? `Yes — ${family.trek_jul18_pax} pax` : "No"}
+        />
+        <Row
+          label="Boat trip (18 Jul, 3:30 PM)"
+          value={family.boat_jul18 ? `Yes — ${family.boat_jul18_pax} pax` : "No"}
+        />
         <Row label="Meal preference" value={family.primary_meal_pref || "—"} />
         <Row label="Allergies" value={family.primary_allergies || "—"} />
       </Card>

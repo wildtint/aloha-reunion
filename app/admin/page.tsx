@@ -14,9 +14,13 @@ type Family = {
   needs_pickup: boolean;
   pickup_point: string | null;
   trek_jul18: boolean;
+  trek_jul18_pax: number;
   boat_jul18: boolean;
+  boat_jul18_pax: number;
   lunch_jul17: boolean;
+  lunch_jul17_pax: number;
   lunch_jul19: boolean;
+  lunch_jul19_pax: number;
   driver_accommodation_needed: boolean;
   primary_meal_pref: string | null;
   submitted_at: string;
@@ -40,7 +44,7 @@ export default async function AdminHome({
   let query = supabase
     .from("families")
     .select(
-      "id, registrant_name, email, phone, country_code, arrival_date, arrival_time, departure_date, departure_time, needs_pickup, pickup_point, trek_jul18, boat_jul18, lunch_jul17, lunch_jul19, driver_accommodation_needed, primary_meal_pref, submitted_at"
+      "id, registrant_name, email, phone, country_code, arrival_date, arrival_time, departure_date, departure_time, needs_pickup, pickup_point, trek_jul18, trek_jul18_pax, boat_jul18, boat_jul18_pax, lunch_jul17, lunch_jul17_pax, lunch_jul19, lunch_jul19_pax, driver_accommodation_needed, primary_meal_pref, submitted_at"
     );
 
   if (q.trim()) {
@@ -105,8 +109,10 @@ export default async function AdminHome({
   const total = familyList.length;
   const totalGuests =
     total + familyList.reduce((sum, f) => sum + (memberCounts.get(f.id) || 0), 0);
-  const trekCount = familyList.filter((f) => f.trek_jul18).length;
-  const boatCount = familyList.filter((f) => f.boat_jul18).length;
+  const trekPax = familyList.reduce((s, f) => s + (f.trek_jul18_pax || 0), 0);
+  const boatPax = familyList.reduce((s, f) => s + (f.boat_jul18_pax || 0), 0);
+  const lunch17Pax = familyList.reduce((s, f) => s + (f.lunch_jul17_pax || 0), 0);
+  const lunch19Pax = familyList.reduce((s, f) => s + (f.lunch_jul19_pax || 0), 0);
   const pickupCount = familyList.filter((f) => f.needs_pickup).length;
 
   return (
@@ -118,12 +124,14 @@ export default async function AdminHome({
         </p>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
         <Stat label="Families" value={total} />
         <Stat label="Total guests" value={totalGuests} />
-        <Stat label="Pickup needed" value={pickupCount} />
-        <Stat label="Trek (18 Jul)" value={trekCount} />
-        <Stat label="Boat (18 Jul)" value={boatCount} />
+        <Stat label="Pickup (families)" value={pickupCount} />
+        <Stat label="Lunch 17 Jul" value={lunch17Pax} unit="pax" />
+        <Stat label="Lunch 19 Jul" value={lunch19Pax} unit="pax" />
+        <Stat label="Trek 18 Jul" value={trekPax} unit="pax" />
+        <Stat label="Boat 18 Jul" value={boatPax} unit="pax" />
       </div>
 
       <form className="bg-white border border-zinc-200 rounded-lg p-4 flex flex-wrap gap-3 items-end">
@@ -226,8 +234,8 @@ export default async function AdminHome({
                       <span className="text-zinc-400">—</span>
                     )}
                   </Td>
-                  <Td>{f.trek_jul18 ? "✓" : "—"}</Td>
-                  <Td>{f.boat_jul18 ? "✓" : "—"}</Td>
+                  <Td>{f.trek_jul18 ? `✓ ${f.trek_jul18_pax}` : "—"}</Td>
+                  <Td>{f.boat_jul18 ? `✓ ${f.boat_jul18_pax}` : "—"}</Td>
                   <Td>{f.driver_accommodation_needed ? "✓" : "—"}</Td>
                   <Td className="text-xs text-zinc-500">
                     {new Date(f.submitted_at).toLocaleDateString("en-IN", {
@@ -252,11 +260,22 @@ export default async function AdminHome({
   );
 }
 
-function Stat({ label, value }: { label: string; value: number }) {
+function Stat({
+  label,
+  value,
+  unit,
+}: {
+  label: string;
+  value: number;
+  unit?: string;
+}) {
   return (
     <div className="bg-white border border-zinc-200 rounded-lg p-4">
       <div className="text-xs text-zinc-500 uppercase tracking-wide">{label}</div>
-      <div className="text-2xl font-semibold text-zinc-900 mt-1">{value}</div>
+      <div className="text-2xl font-semibold text-zinc-900 mt-1">
+        {value}
+        {unit && <span className="text-xs text-zinc-500 font-normal ml-1">{unit}</span>}
+      </div>
     </div>
   );
 }
