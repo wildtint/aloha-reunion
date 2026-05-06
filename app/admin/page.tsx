@@ -91,11 +91,36 @@ export default async function AdminHome({
   const { data: families, error } = await query.returns<Family[]>();
 
   // Always pull all member records for accurate stats / counts
-  const { data: members } = await supabase.from("members").select("family_id");
+  const { data: members } = await supabase
+    .from("members")
+    .select("family_id, meal_pref");
   const memberCounts = new Map<string, number>();
   (members || []).forEach((m: { family_id: string }) => {
     memberCounts.set(m.family_id, (memberCounts.get(m.family_id) || 0) + 1);
   });
+
+  // Pull primary meal pref across ALL families (unfiltered) for meal totals
+  const { data: allFamiliesMeals } = await supabase
+    .from("families")
+    .select("primary_meal_pref");
+
+  const mealCounts: Record<string, number> = {
+    veg: 0,
+    "non-veg": 0,
+    vegan: 0,
+    jain: 0,
+    unspecified: 0,
+  };
+  const bucket = (pref: string | null) => {
+    const key = pref && pref in mealCounts ? pref : "unspecified";
+    mealCounts[key]++;
+  };
+  (allFamiliesMeals || []).forEach((f: { primary_meal_pref: string | null }) =>
+    bucket(f.primary_meal_pref)
+  );
+  (members || []).forEach((m: { meal_pref: string | null }) =>
+    bucket(m.meal_pref)
+  );
 
   if (error) {
     return (
@@ -132,6 +157,19 @@ export default async function AdminHome({
         <Stat label="Lunch 19 Jul" value={lunch19Pax} unit="pax" />
         <Stat label="Trek 18 Jul" value={trekPax} unit="pax" />
         <Stat label="Boat 18 Jul" value={boatPax} unit="pax" />
+      </div>
+
+      <div>
+        <h2 className="text-sm font-semibold text-zinc-700 uppercase tracking-wide mb-2">
+          Meal preferences (all registered guests)
+        </h2>
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+          <Stat label="Vegetarian" value={mealCounts.veg} unit="pax" />
+          <Stat label="Non-vegetarian" value={mealCounts["non-veg"]} unit="pax" />
+          <Stat label="Vegan" value={mealCounts.vegan} unit="pax" />
+          <Stat label="Jain" value={mealCounts.jain} unit="pax" />
+          <Stat label="Not specified" value={mealCounts.unspecified} unit="pax" />
+        </div>
       </div>
 
       <form className="bg-white border border-zinc-200 rounded-lg p-4 flex flex-wrap gap-3 items-end">
