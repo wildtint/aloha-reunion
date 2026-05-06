@@ -515,9 +515,18 @@ export default function RegisterPage() {
           <button
             type="submit"
             disabled={submitting}
-            className="w-full bg-zinc-900 hover:bg-zinc-700 disabled:bg-zinc-400 disabled:cursor-not-allowed text-white font-medium py-3 rounded-lg transition"
+            className="w-full bg-zinc-900 hover:bg-zinc-700 disabled:bg-zinc-700 disabled:cursor-not-allowed text-white font-medium py-3 rounded-lg transition flex items-center justify-center gap-3"
           >
-            {submitting ? "Submitting..." : "Submit registration"}
+            {submitting ? (
+              <>
+                <span className="w-5 h-5 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+                <span>
+                  Submitting<AnimatedDots />
+                </span>
+              </>
+            ) : (
+              "Submit registration"
+            )}
           </button>
         </form>
         </fieldset>
