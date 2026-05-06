@@ -8,6 +8,7 @@ type Member = {
   meal_pref: string | null;
   allergies: string | null;
   id_document_path?: string | null;
+  visa_document_path?: string | null;
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -17,12 +18,14 @@ export default function FamilyPrintCard({
   idDocDataUrl,
   visaDocDataUrl = null,
   memberDocs = new Map<string, string | null>(),
+  memberVisaDocs = new Map<string, string | null>(),
 }: {
   family: any;
   members: Member[];
   idDocDataUrl: string | null;
   visaDocDataUrl?: string | null;
   memberDocs?: Map<string, string | null>;
+  memberVisaDocs?: Map<string, string | null>;
 }) {
   return (
     <article className="bg-white border border-zinc-200 rounded-lg p-6 print:rounded-none print:border-0 print:p-0 print:break-after-page">
@@ -190,7 +193,7 @@ export default function FamilyPrintCard({
           </Block>
         </div>
 
-        {family.id_type === "passport" && (
+        {family.visa_document_path && (
           <div className="col-span-2">
             <Block title={`VISA page — ${family.registrant_name}`}>
               <DocPreview
@@ -202,10 +205,9 @@ export default function FamilyPrintCard({
           </div>
         )}
 
-        {members
-          .filter((m) => m.id_document_path)
-          .map((m) => (
-            <div key={`doc-${m.id}`} className="col-span-2">
+        {members.map((m) => (
+          <div key={`docs-${m.id}`} className="col-span-2 space-y-4">
+            {m.id_document_path && (
               <Block title={`ID document — ${m.name} (${m.member_type})`}>
                 <DocPreview
                   url={memberDocs.get(m.id) ?? null}
@@ -213,8 +215,18 @@ export default function FamilyPrintCard({
                   filename={`id-${m.name}`}
                 />
               </Block>
-            </div>
-          ))}
+            )}
+            {m.visa_document_path && (
+              <Block title={`VISA page — ${m.name} (${m.member_type})`}>
+                <DocPreview
+                  url={memberVisaDocs.get(m.id) ?? null}
+                  path={m.visa_document_path || null}
+                  filename={`visa-${m.name}`}
+                />
+              </Block>
+            )}
+          </div>
+        ))}
       </div>
     </article>
   );

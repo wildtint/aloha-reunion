@@ -49,18 +49,24 @@ export default async function FamiliesPrintAll({
   );
 
   const memberDocsByFamily = new Map<string, Map<string, string | null>>();
+  const memberVisaDocsByFamily = new Map<string, Map<string, string | null>>();
   await Promise.all(
     (families || []).map(async (f) => {
       const memberList = membersByFamily.get(f.id) || [];
-      const inner = new Map<string, string | null>();
+      const idInner = new Map<string, string | null>();
+      const visaInner = new Map<string, string | null>();
       await Promise.all(
         memberList.map(async (m) => {
           if (m.id_document_path) {
-            inner.set(m.id, await fetchIdDocAsDataUrl(m.id_document_path, supabase));
+            idInner.set(m.id, await fetchIdDocAsDataUrl(m.id_document_path, supabase));
+          }
+          if (m.visa_document_path) {
+            visaInner.set(m.id, await fetchIdDocAsDataUrl(m.visa_document_path, supabase));
           }
         })
       );
-      memberDocsByFamily.set(f.id, inner);
+      memberDocsByFamily.set(f.id, idInner);
+      memberVisaDocsByFamily.set(f.id, visaInner);
     })
   );
 
@@ -93,6 +99,7 @@ export default async function FamiliesPrintAll({
             idDocDataUrl={f.idDocDataUrl}
             visaDocDataUrl={f.visaDocDataUrl}
             memberDocs={memberDocsByFamily.get(f.id) || new Map()}
+            memberVisaDocs={memberVisaDocsByFamily.get(f.id) || new Map()}
           />
         ))}
       </div>

@@ -42,9 +42,11 @@ export default async function FamilyDetailPage({
   const idDocUrl = await signedUrl(family.id_document_path);
   const visaDocUrl = await signedUrl(family.visa_document_path);
   const memberDocUrls = new Map<string, string | null>();
+  const memberVisaUrls = new Map<string, string | null>();
   await Promise.all(
     (members || []).map(async (m) => {
       memberDocUrls.set(m.id, await signedUrl(m.id_document_path));
+      memberVisaUrls.set(m.id, await signedUrl(m.visa_document_path));
     })
   );
 
@@ -93,18 +95,30 @@ export default async function FamilyDetailPage({
                     </div>
                   )}
                 </div>
-                {memberDocUrls.get(m.id) ? (
-                  <a
-                    href={memberDocUrls.get(m.id)!}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-xs text-blue-700 hover:underline shrink-0"
-                  >
-                    View ID
-                  </a>
-                ) : (
-                  <span className="text-xs text-zinc-400 shrink-0">No ID</span>
-                )}
+                <div className="flex flex-col items-end gap-1 shrink-0 text-xs">
+                  {memberDocUrls.get(m.id) ? (
+                    <a
+                      href={memberDocUrls.get(m.id)!}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-700 hover:underline"
+                    >
+                      View ID
+                    </a>
+                  ) : (
+                    <span className="text-zinc-400">No ID</span>
+                  )}
+                  {memberVisaUrls.get(m.id) && (
+                    <a
+                      href={memberVisaUrls.get(m.id)!}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-700 hover:underline"
+                    >
+                      View VISA
+                    </a>
+                  )}
+                </div>
               </li>
             ))}
           </ul>
@@ -132,7 +146,7 @@ export default async function FamilyDetailPage({
             <span className="text-sm text-zinc-400">Not uploaded</span>
           )}
         </div>
-        {family.id_type === "passport" && (
+        {family.visa_document_path !== undefined && family.visa_document_path !== null && (
           <div className="flex justify-between items-start py-2">
             <span className="text-sm text-zinc-600">VISA page</span>
             {visaDocUrl ? (

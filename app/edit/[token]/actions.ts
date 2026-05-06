@@ -11,6 +11,7 @@ type Member = {
   meal_pref: string | null;
   allergies: string | null;
   id_document_path: string | null;
+  visa_document_path: string | null;
 };
 
 async function uploadIfPresent(
@@ -53,43 +54,75 @@ export async function updateRegistration(token: string, formData: FormData) {
 
   const familyId = existing.id;
 
-  // Pull existing members so we can preserve their ID docs if no replacement uploaded
+  // Detect international from form data
+  const residenceCountry = ((formData.get("residence_country") as string) || "India").trim();
+  const isInternational =
+    residenceCountry !== "" && residenceCountry.toLowerCase() !== "india";
+
+  // Pull existing members so we can preserve their ID + VISA docs if no replacement uploaded
   const { data: existingMembers } = await supabase
     .from("members")
-    .select("id, name, id_document_path")
+    .select("id, name, id_document_path, visa_document_path")
     .eq("family_id", familyId);
-  const existingMemberByName = new Map<string, { id_document_path: string | null }>();
+  const existingMemberByName = new Map<
+    string,
+    { id_document_path: string | null; visa_document_path: string | null }
+  >();
   (existingMembers || []).forEach((m) => {
     existingMemberByName.set(m.name.trim().toLowerCase(), {
       id_document_path: m.id_document_path,
+      visa_document_path: m.visa_document_path,
     });
   });
   const oldMemberDocPaths = (existingMembers || [])
-    .map((m) => m.id_document_path)
+    .flatMap((m) => [m.id_document_path, m.visa_document_path])
     .filter((p): p is string => !!p);
 
   // Build new members
   const members: Member[] = [];
   const memberCount = parseInt((formData.get("member_count") as string) || "0", 10);
-  const replacedMemberDocs: string[] = [];
+  const preservedMemberDocs: string[] = [];
   for (let i = 0; i < memberCount; i++) {
     const name = (formData.get(`member_${i}_name`) as string)?.trim();
     if (!name) continue;
-    const memberFile = formData.get(`member_${i}_id_document`) as File | null;
-    const upload = await uploadIfPresent(supabase, memberFile);
-    if (upload.error) {
-      return { ok: false, error: `Member ID upload failed: ${upload.error}` };
+
+    // ID
+    const idUpload = await uploadIfPresent(
+      supabase,
+      formData.get(`member_${i}_id_document`) as File
+    );
+    if (idUpload.error) {
+      return { ok: false, error: `Member ID upload failed: ${idUpload.error}` };
     }
-    let docPath: string | null = upload.path;
-    if (!docPath) {
-      // No new file — keep existing if name matches
+    let idPath: string | null = idUpload.path;
+    if (!idPath) {
       const prev = existingMemberByName.get(name.toLowerCase());
       if (prev?.id_document_path) {
-        docPath = prev.id_document_path;
-        // mark as preserved so we don't accidentally delete it later
-        replacedMemberDocs.push(prev.id_document_path);
+        idPath = prev.id_document_path;
+        preservedMemberDocs.push(prev.id_document_path);
       }
     }
+
+    // VISA (only if international)
+    let visaPath: string | null = null;
+    if (isInternational) {
+      const visaUpload = await uploadIfPresent(
+        supabase,
+        formData.get(`member_${i}_visa_document`) as File
+      );
+      if (visaUpload.error) {
+        return { ok: false, error: `Member VISA upload failed: ${visaUpload.error}` };
+      }
+      visaPath = visaUpload.path;
+      if (!visaPath) {
+        const prev = existingMemberByName.get(name.toLowerCase());
+        if (prev?.visa_document_path) {
+          visaPath = prev.visa_document_path;
+          preservedMemberDocs.push(prev.visa_document_path);
+        }
+      }
+    }
+
     members.push({
       member_type: formData.get(`member_${i}_type`) as "spouse" | "child",
       name,
@@ -98,7 +131,8 @@ export async function updateRegistration(token: string, formData: FormData) {
         : null,
       meal_pref: (formData.get(`member_${i}_meal`) as string) || null,
       allergies: (formData.get(`member_${i}_allergies`) as string) || null,
-      id_document_path: docPath,
+      id_document_path: idPath,
+      visa_document_path: visaPath,
     });
   }
 
@@ -117,11 +151,11 @@ export async function updateRegistration(token: string, formData: FormData) {
     if (oldPrimaryPath) await safeRemove(supabase, [oldPrimaryPath]);
   }
 
-  // Optional new VISA document
+  // Optional new VISA document — based on residence country
   const idType = formData.get("id_type") as "aadhaar" | "passport";
   let visa_document_path = existing.visa_document_path as string | null;
   const oldVisaPath = visa_document_path;
-  if (idType === "passport") {
+  if (isInternational) {
     const visaUpload = await uploadIfPresent(
       supabase,
       formData.get("visa_document") as File
@@ -134,7 +168,7 @@ export async function updateRegistration(token: string, formData: FormData) {
       if (oldVisaPath) await safeRemove(supabase, [oldVisaPath]);
     }
   } else {
-    // If they switched away from passport, drop any existing visa doc
+    // Switched to India — drop any existing primary visa doc
     if (oldVisaPath) await safeRemove(supabase, [oldVisaPath]);
     visa_document_path = null;
   }
@@ -203,8 +237,8 @@ export async function updateRegistration(token: string, formData: FormData) {
     }
   }
 
-  // Clean up orphan member ID docs (those not preserved)
-  const preserved = new Set(replacedMemberDocs);
+  // Clean up orphan member ID/VISA docs (those not preserved)
+  const preserved = new Set(preservedMemberDocs);
   const orphaned = oldMemberDocPaths.filter((p) => !preserved.has(p));
   if (orphaned.length > 0) await safeRemove(supabase, orphaned);
 

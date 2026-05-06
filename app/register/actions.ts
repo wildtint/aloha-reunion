@@ -12,6 +12,7 @@ type Member = {
   meal_pref: string | null;
   allergies: string | null;
   id_document_path: string | null;
+  visa_document_path: string | null;
 };
 
 async function uploadIfPresent(
@@ -32,16 +33,34 @@ async function uploadIfPresent(
 export async function submitRegistration(formData: FormData) {
   const supabase = createAdminSupabase();
 
-  // Extract members + their ID uploads
+  // Detect international based on residence country
+  const residenceCountry = ((formData.get("residence_country") as string) || "India").trim();
+  const isInternational =
+    residenceCountry !== "" && residenceCountry.toLowerCase() !== "india";
+
+  // Extract members + their ID and (if international) VISA uploads
   const members: Member[] = [];
   const memberCount = parseInt((formData.get("member_count") as string) || "0", 10);
   for (let i = 0; i < memberCount; i++) {
     const name = (formData.get(`member_${i}_name`) as string)?.trim();
     if (!name) continue;
-    const memberFile = formData.get(`member_${i}_id_document`) as File | null;
-    const upload = await uploadIfPresent(supabase, memberFile);
-    if (upload.error) {
-      return { ok: false, error: `Member ID upload failed: ${upload.error}` };
+    const idUpload = await uploadIfPresent(
+      supabase,
+      formData.get(`member_${i}_id_document`) as File
+    );
+    if (idUpload.error) {
+      return { ok: false, error: `Member ID upload failed: ${idUpload.error}` };
+    }
+    let visaPath: string | null = null;
+    if (isInternational) {
+      const visaUpload = await uploadIfPresent(
+        supabase,
+        formData.get(`member_${i}_visa_document`) as File
+      );
+      if (visaUpload.error) {
+        return { ok: false, error: `Member VISA upload failed: ${visaUpload.error}` };
+      }
+      visaPath = visaUpload.path;
     }
     members.push({
       member_type: formData.get(`member_${i}_type`) as "spouse" | "child",
@@ -51,7 +70,8 @@ export async function submitRegistration(formData: FormData) {
         : null,
       meal_pref: (formData.get(`member_${i}_meal`) as string) || null,
       allergies: (formData.get(`member_${i}_allergies`) as string) || null,
-      id_document_path: upload.path,
+      id_document_path: idUpload.path,
+      visa_document_path: visaPath,
     });
   }
 
@@ -61,10 +81,10 @@ export async function submitRegistration(formData: FormData) {
     return { ok: false, error: `ID upload failed: ${idUpload.error}` };
   }
 
-  // VISA document (international guests only)
+  // VISA document (international guests only — based on residence country)
   const idType = formData.get("id_type") as "aadhaar" | "passport";
   let visa_document_path: string | null = null;
-  if (idType === "passport") {
+  if (isInternational) {
     const visaUpload = await uploadIfPresent(
       supabase,
       formData.get("visa_document") as File

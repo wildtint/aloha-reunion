@@ -74,6 +74,7 @@ export default async function EditPage({
       meal: m.meal_pref || "",
       allergies: m.allergies || "",
       has_existing_id_document: !!m.id_document_path,
+      has_existing_visa_document: !!m.visa_document_path,
     })),
   };
 
