@@ -629,18 +629,21 @@ function YesNoPax({
         </label>
       </div>
       {yes && (
-        <div className="mt-2 flex items-center gap-2">
+        <div className="mt-2 flex items-center gap-2 flex-wrap">
           <label className="text-sm text-zinc-700">How many people?</label>
-          <input
-            type="number"
+          <select
             name={`${name}_pax`}
-            min={1}
-            max={Math.max(maxFamilySize, 1)}
-            value={pax}
-            onChange={(e) => setPax(Math.max(1, parseInt(e.target.value, 10) || 1))}
-            className="w-20 rounded-md border border-zinc-300 px-2 py-1 text-sm"
+            value={Math.min(pax, Math.max(maxFamilySize, 1))}
+            onChange={(e) => setPax(parseInt(e.target.value, 10))}
+            className="rounded-md border border-zinc-300 px-3 py-2 text-sm bg-white"
             required
-          />
+          >
+            {Array.from({ length: Math.max(maxFamilySize, 1) }, (_, i) => i + 1).map((n) => (
+              <option key={n} value={n}>
+                {n}
+              </option>
+            ))}
+          </select>
           <span className="text-xs text-zinc-500">
             (your family size: {maxFamilySize})
           </span>
