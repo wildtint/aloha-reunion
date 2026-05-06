@@ -1,6 +1,8 @@
 import { createAdminSupabase } from "@/lib/supabase/admin";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { headers } from "next/headers";
+import CopyEditLink from "./CopyEditLink";
 
 export default async function FamilyDetailPage({
   params,
@@ -17,6 +19,11 @@ export default async function FamilyDetailPage({
     .single();
 
   if (error || !family) notFound();
+
+  const h = await headers();
+  const host = h.get("host") || "localhost:3000";
+  const protocol = host.startsWith("localhost") ? "http" : "https";
+  const editUrl = `${protocol}://${host}/edit/${family.edit_token}`;
 
   const { data: members } = await supabase
     .from("members")
@@ -44,14 +51,17 @@ export default async function FamilyDetailPage({
         </span>
       </div>
 
-      <div className="bg-white border border-zinc-200 rounded-lg p-6">
-        <h1 className="text-2xl font-semibold text-zinc-900">{family.registrant_name}</h1>
-        <p className="text-sm text-zinc-600 mt-1">
-          {family.email} · {family.country_code} {family.phone}
-        </p>
-        <p className="text-sm text-zinc-500 mt-1">
-          {family.city ? `${family.city}, ` : ""}{family.residence_country}
-        </p>
+      <div className="bg-white border border-zinc-200 rounded-lg p-6 space-y-4">
+        <div>
+          <h1 className="text-2xl font-semibold text-zinc-900">{family.registrant_name}</h1>
+          <p className="text-sm text-zinc-600 mt-1">
+            {family.email} · {family.country_code} {family.phone}
+          </p>
+          <p className="text-sm text-zinc-500 mt-1">
+            {family.city ? `${family.city}, ` : ""}{family.residence_country}
+          </p>
+        </div>
+        <CopyEditLink editUrl={editUrl} registrantName={family.registrant_name} />
       </div>
 
       <Card title="Family members">
