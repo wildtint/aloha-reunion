@@ -415,14 +415,10 @@ export default function RegistrationForm({
                       className={inputCls}
                     />
                   </Field>
-                  <Field label="Country of residence" required>
-                    <input
-                      name="passport_country"
-                      required
-                      defaultValue={initial?.passport_country || ""}
-                      className={inputCls}
-                    />
-                  </Field>
+                  <p className="text-xs text-zinc-500 -mt-1">
+                    Passport country: <strong>{residenceCountry || "—"}</strong> (taken
+                    from your country of residence above).
+                  </p>
                 </>
               )}
 

@@ -183,7 +183,7 @@ export async function updateRegistration(token: string, formData: FormData) {
 
     id_type: idType,
     id_number: (formData.get("id_number") as string).trim(),
-    passport_country: (formData.get("passport_country") as string) || null,
+    passport_country: idType === "passport" ? residenceCountry || null : null,
     id_document_path,
     visa_document_path,
 
