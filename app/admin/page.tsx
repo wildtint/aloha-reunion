@@ -1,4 +1,5 @@
 import { createAdminSupabase } from "@/lib/supabase/admin";
+import Link from "next/link";
 
 type Family = {
   id: string;
@@ -21,24 +22,72 @@ type Family = {
   submitted_at: string;
 };
 
-type MemberCount = { family_id: string; count: number };
+type SearchParams = {
+  q?: string;
+  filter?: string;
+  sort?: string;
+};
 
-export default async function AdminHome() {
+export default async function AdminHome({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}) {
+  const { q = "", filter = "", sort = "submitted_desc" } = await searchParams;
+
   const supabase = createAdminSupabase();
 
-  const { data: families, error } = await supabase
+  let query = supabase
     .from("families")
     .select(
       "id, registrant_name, email, phone, country_code, arrival_date, arrival_time, departure_date, departure_time, needs_pickup, pickup_point, trek_jul18, boat_jul18, lunch_jul17, lunch_jul19, driver_accommodation_needed, primary_meal_pref, submitted_at"
-    )
-    .order("submitted_at", { ascending: false })
-    .returns<Family[]>();
+    );
 
-  // Member counts per family
-  const { data: members } = await supabase
-    .from("members")
-    .select("family_id");
+  if (q.trim()) {
+    const term = `%${q.trim()}%`;
+    query = query.or(
+      `registrant_name.ilike.${term},email.ilike.${term},phone.ilike.${term}`
+    );
+  }
 
+  switch (filter) {
+    case "pickup":
+      query = query.eq("needs_pickup", true);
+      break;
+    case "trek":
+      query = query.eq("trek_jul18", true);
+      break;
+    case "boat":
+      query = query.eq("boat_jul18", true);
+      break;
+    case "driver":
+      query = query.eq("driver_accommodation_needed", true);
+      break;
+    case "lunch17":
+      query = query.eq("lunch_jul17", true);
+      break;
+    case "lunch19":
+      query = query.eq("lunch_jul19", true);
+      break;
+  }
+
+  switch (sort) {
+    case "name_asc":
+      query = query.order("registrant_name", { ascending: true });
+      break;
+    case "arrival_asc":
+      query = query
+        .order("arrival_date", { ascending: true })
+        .order("arrival_time", { ascending: true });
+      break;
+    default:
+      query = query.order("submitted_at", { ascending: false });
+  }
+
+  const { data: families, error } = await query.returns<Family[]>();
+
+  // Always pull all member records for accurate stats / counts
+  const { data: members } = await supabase.from("members").select("family_id");
   const memberCounts = new Map<string, number>();
   (members || []).forEach((m: { family_id: string }) => {
     memberCounts.set(m.family_id, (memberCounts.get(m.family_id) || 0) + 1);
@@ -52,13 +101,13 @@ export default async function AdminHome() {
     );
   }
 
-  const total = families?.length || 0;
+  const familyList = families || [];
+  const total = familyList.length;
   const totalGuests =
-    (families?.length || 0) +
-    (members?.length || 0);
-  const trekCount = families?.filter((f) => f.trek_jul18).length || 0;
-  const boatCount = families?.filter((f) => f.boat_jul18).length || 0;
-  const pickupCount = families?.filter((f) => f.needs_pickup).length || 0;
+    total + familyList.reduce((sum, f) => sum + (memberCounts.get(f.id) || 0), 0);
+  const trekCount = familyList.filter((f) => f.trek_jul18).length;
+  const boatCount = familyList.filter((f) => f.boat_jul18).length;
+  const pickupCount = familyList.filter((f) => f.needs_pickup).length;
 
   return (
     <div className="space-y-6">
@@ -76,6 +125,53 @@ export default async function AdminHome() {
         <Stat label="Trek (18 Jul)" value={trekCount} />
         <Stat label="Boat (18 Jul)" value={boatCount} />
       </div>
+
+      <form className="bg-white border border-zinc-200 rounded-lg p-4 flex flex-wrap gap-3 items-end">
+        <label className="flex-1 min-w-[200px]">
+          <span className="block text-xs font-medium text-zinc-600 mb-1">Search</span>
+          <input
+            type="search"
+            name="q"
+            defaultValue={q}
+            placeholder="Name, email, or phone"
+            className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm"
+          />
+        </label>
+        <label>
+          <span className="block text-xs font-medium text-zinc-600 mb-1">Filter</span>
+          <select name="filter" defaultValue={filter} className="rounded-md border border-zinc-300 px-3 py-2 text-sm">
+            <option value="">All registrations</option>
+            <option value="pickup">Need pickup</option>
+            <option value="trek">Trek attendees</option>
+            <option value="boat">Boat trip attendees</option>
+            <option value="driver">Driver accommodation</option>
+            <option value="lunch17">Lunch 17 Jul</option>
+            <option value="lunch19">Lunch 19 Jul</option>
+          </select>
+        </label>
+        <label>
+          <span className="block text-xs font-medium text-zinc-600 mb-1">Sort by</span>
+          <select name="sort" defaultValue={sort} className="rounded-md border border-zinc-300 px-3 py-2 text-sm">
+            <option value="submitted_desc">Most recent</option>
+            <option value="name_asc">Name (A–Z)</option>
+            <option value="arrival_asc">Arrival date</option>
+          </select>
+        </label>
+        <button
+          type="submit"
+          className="bg-zinc-900 hover:bg-zinc-700 text-white text-sm font-medium px-4 py-2 rounded-md"
+        >
+          Apply
+        </button>
+        {(q || filter || sort !== "submitted_desc") && (
+          <Link
+            href="/admin"
+            className="text-sm text-zinc-600 hover:text-zinc-900 underline px-2"
+          >
+            Reset
+          </Link>
+        )}
+      </form>
 
       <div className="bg-white border border-zinc-200 rounded-lg overflow-hidden">
         <div className="overflow-x-auto">
@@ -95,10 +191,15 @@ export default async function AdminHome() {
               </tr>
             </thead>
             <tbody>
-              {(families || []).map((f) => (
+              {familyList.map((f) => (
                 <tr key={f.id} className="border-t border-zinc-100 hover:bg-zinc-50">
                   <Td>
-                    <div className="font-medium text-zinc-900">{f.registrant_name}</div>
+                    <Link
+                      href={`/admin/registrations/${f.id}`}
+                      className="font-medium text-zinc-900 hover:underline"
+                    >
+                      {f.registrant_name}
+                    </Link>
                     <div className="text-xs text-zinc-500">{f.primary_meal_pref || "—"}</div>
                   </Td>
                   <Td>
@@ -139,7 +240,7 @@ export default async function AdminHome() {
               {total === 0 && (
                 <tr>
                   <td colSpan={10} className="text-center text-zinc-500 py-8">
-                    No registrations yet.
+                    No registrations match your filter.
                   </td>
                 </tr>
               )}
