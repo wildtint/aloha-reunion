@@ -47,6 +47,17 @@ export default function ExportsPage() {
           </div>
         ))}
       </div>
+
+      <div className="bg-amber-50 border border-amber-200 rounded-lg p-5 mt-2">
+        <div className="font-semibold text-amber-900">Auto-purge of ID & VISA documents</div>
+        <p className="text-sm text-amber-900 mt-1">
+          For privacy, all uploaded ID and VISA documents will be{" "}
+          <strong>automatically deleted on 18 August 2026</strong> (30 days after the
+          reunion). Registration data (names, contact, meal preferences, etc.) is
+          retained — only the photo files are removed. Make sure to download the
+          registrations CSV before that date if you want a permanent record.
+        </p>
+      </div>
     </div>
   );
 }

@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/purge-id-docs",
+      "schedule": "0 2 * * *"
+    }
+  ]
+}
