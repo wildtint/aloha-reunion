@@ -38,9 +38,44 @@ export async function submitRegistration(formData: FormData) {
   const isInternational =
     residenceCountry !== "" && residenceCountry.toLowerCase() !== "india";
 
+  // Server-side validation backstop — re-check required uploads
+  const primaryIdFile = formData.get("id_document") as File | null;
+  if (!primaryIdFile || primaryIdFile.size === 0) {
+    return { ok: false, error: "ID photo is required for the primary registrant." };
+  }
+  if (isInternational) {
+    const primaryVisaFile = formData.get("visa_document") as File | null;
+    if (!primaryVisaFile || primaryVisaFile.size === 0) {
+      return {
+        ok: false,
+        error: "VISA page photo is required when the country of residence is outside India.",
+      };
+    }
+  }
+  const memberCount = parseInt((formData.get("member_count") as string) || "0", 10);
+  for (let i = 0; i < memberCount; i++) {
+    const memberName = (formData.get(`member_${i}_name`) as string)?.trim();
+    if (!memberName) continue;
+    const idF = formData.get(`member_${i}_id_document`) as File | null;
+    if (!idF || idF.size === 0) {
+      return {
+        ok: false,
+        error: `ID photo is required for ${memberName}.`,
+      };
+    }
+    if (isInternational) {
+      const vF = formData.get(`member_${i}_visa_document`) as File | null;
+      if (!vF || vF.size === 0) {
+        return {
+          ok: false,
+          error: `VISA page photo is required for ${memberName}.`,
+        };
+      }
+    }
+  }
+
   // Extract members + their ID and (if international) VISA uploads
   const members: Member[] = [];
-  const memberCount = parseInt((formData.get("member_count") as string) || "0", 10);
   for (let i = 0; i < memberCount; i++) {
     const name = (formData.get(`member_${i}_name`) as string)?.trim();
     if (!name) continue;
@@ -76,7 +111,7 @@ export async function submitRegistration(formData: FormData) {
   }
 
   // Primary ID document
-  const idUpload = await uploadIfPresent(supabase, formData.get("id_document") as File);
+  const idUpload = await uploadIfPresent(supabase, primaryIdFile);
   if (idUpload.error) {
     return { ok: false, error: `ID upload failed: ${idUpload.error}` };
   }
