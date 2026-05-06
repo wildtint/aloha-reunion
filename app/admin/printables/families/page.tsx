@@ -248,14 +248,19 @@ export default async function FamiliesPrintable() {
                   <Block title="ID document">
                     {f.idDocDataUrl ? (
                       f.id_document_path?.toLowerCase().endsWith(".pdf") ? (
-                        <a
-                          href={f.idDocDataUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-blue-700 underline"
+                        <object
+                          data={f.idDocDataUrl}
+                          type="application/pdf"
+                          className="w-full h-[600px] border border-zinc-300"
                         >
-                          PDF document (open in new tab)
-                        </a>
+                          <a
+                            href={f.idDocDataUrl}
+                            download={`id-${f.registrant_name}.pdf`}
+                            className="text-blue-700 underline"
+                          >
+                            Download PDF (your browser couldn&apos;t display it inline)
+                          </a>
+                        </object>
                       ) : (
                         <img
                           src={f.idDocDataUrl}
