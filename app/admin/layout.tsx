@@ -35,6 +35,10 @@ export default async function AdminLayout({
               <Link href="/admin/printables" className="text-zinc-600 hover:text-zinc-900">
                 Printables
               </Link>
+              <span className="text-zinc-300">·</span>
+              <Link href="/admin/exports" className="text-zinc-600 hover:text-zinc-900">
+                Exports
+              </Link>
             </nav>
           </div>
           <div className="flex items-center gap-3 text-sm">
