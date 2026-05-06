@@ -1,294 +1,185 @@
 import { createAdminSupabase } from "@/lib/supabase/admin";
-import { formatDate, formatTime, mealLabel } from "@/lib/format";
-import { PrintButton } from "../PrintButton";
+import Link from "next/link";
+import { MarkPrintedButton, ResetPrintedButton } from "./PrintActions";
 
 export const dynamic = "force-dynamic";
 
-async function fetchIdDocAsDataUrl(
-  path: string,
-  supabase: ReturnType<typeof createAdminSupabase>
-): Promise<string | null> {
-  try {
-    const { data, error } = await supabase.storage
-      .from("id-documents")
-      .download(path);
-    if (error || !data) return null;
-    const buf = Buffer.from(await data.arrayBuffer());
-    const ext = path.split(".").pop()?.toLowerCase() || "";
-    const mime =
-      ext === "png"
-        ? "image/png"
-        : ext === "webp"
-          ? "image/webp"
-          : ext === "pdf"
-            ? "application/pdf"
-            : "image/jpeg";
-    return `data:${mime};base64,${buf.toString("base64")}`;
-  } catch {
-    return null;
-  }
-}
-
-export default async function FamiliesPrintable() {
+export default async function FamiliesListPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ filter?: string }>;
+}) {
+  const { filter = "all" } = await searchParams;
   const supabase = createAdminSupabase();
 
-  const { data: families } = await supabase
+  let query = supabase
     .from("families")
-    .select("*")
+    .select(
+      "id, registrant_name, email, phone, country_code, arrival_date, printed_at, printed_count"
+    )
     .order("registrant_name", { ascending: true });
 
-  const { data: members } = await supabase
-    .from("members")
-    .select("*")
-    .order("created_at", { ascending: true });
+  if (filter === "unprinted") query = query.is("printed_at", null);
+  else if (filter === "printed") query = query.not("printed_at", "is", null);
 
-  const membersByFamily = new Map<string, typeof members>();
-  (members || []).forEach((m) => {
-    const arr = membersByFamily.get(m.family_id) || [];
-    arr.push(m);
-    membersByFamily.set(m.family_id, arr);
-  });
+  const { data: families } = await query;
+  const list = families || [];
 
-  // Fetch ID document images as data URLs
-  const familiesWithDocs = await Promise.all(
-    (families || []).map(async (f) => ({
-      ...f,
-      idDocDataUrl: f.id_document_path
-        ? await fetchIdDocAsDataUrl(f.id_document_path, supabase)
-        : null,
-    }))
-  );
+  // Counts for filter chips (always pull all)
+  const { data: allFamilies } = await supabase
+    .from("families")
+    .select("printed_at");
+  const total = (allFamilies || []).length;
+  const printedCount = (allFamilies || []).filter((f) => f.printed_at).length;
+  const unprintedCount = total - printedCount;
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between print:hidden">
+      <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-semibold text-zinc-900">
-            Family details (all)
+          <Link href="/admin/printables" className="text-sm text-zinc-600 hover:text-zinc-900">
+            ← All printables
+          </Link>
+          <h1 className="text-2xl font-semibold text-zinc-900 mt-1">
+            Family details
           </h1>
           <p className="text-sm text-zinc-500 mt-1">
-            {familiesWithDocs.length} families · one page per family when printed.
+            Print one at a time, or print all (filtered) at once. Status tracks
+            how many times each family has been printed.
           </p>
         </div>
-        <PrintButton label="Print all" />
+        <div className="flex items-center gap-2">
+          <Link
+            href={`/admin/printables/families/print${filter !== "all" ? `?filter=${filter}` : ""}`}
+            className="bg-zinc-900 hover:bg-zinc-700 text-white text-sm font-medium px-4 py-2 rounded-md"
+          >
+            Open print view ({list.length})
+          </Link>
+        </div>
       </div>
 
-      <div className="space-y-6 print:space-y-0">
-        {familiesWithDocs.map((f) => {
-          const fam = membersByFamily.get(f.id) || [];
-          return (
-            <article
-              key={f.id}
-              className="bg-white border border-zinc-200 rounded-lg p-6 print:rounded-none print:border-0 print:p-0 print:break-after-page"
-            >
-              <header className="border-b border-zinc-300 pb-3 mb-4">
-                <p className="text-xs uppercase tracking-widest text-zinc-500">
-                  Aloha Batch · 35th Year Reunion · 17–19 Jul 2026 · Spice Village, Thekkady
-                </p>
-                <h2 className="text-2xl font-bold text-zinc-900 mt-1">
-                  {f.registrant_name}
-                </h2>
-                <p className="text-sm text-zinc-700">
-                  {f.email} · {f.country_code} {f.phone}
-                </p>
-                {f.city && (
-                  <p className="text-sm text-zinc-600">
-                    {f.city}, {f.residence_country}
-                  </p>
-                )}
-              </header>
+      <div className="flex gap-2 flex-wrap">
+        <FilterChip current={filter} value="all" label={`All (${total})`} />
+        <FilterChip
+          current={filter}
+          value="unprinted"
+          label={`Not yet printed (${unprintedCount})`}
+        />
+        <FilterChip
+          current={filter}
+          value="printed"
+          label={`Already printed (${printedCount})`}
+        />
+      </div>
 
-              <div className="grid grid-cols-2 gap-x-6 gap-y-4 text-sm">
-                <Block title="Check-in">
-                  <div>{formatDate(f.arrival_date)}</div>
-                  <div className="text-zinc-600">
-                    {formatTime(f.arrival_time)} · {f.arrival_mode || "—"}
+      <div className="bg-white border border-zinc-200 rounded-lg overflow-hidden">
+        <table className="w-full text-sm">
+          <thead className="bg-zinc-50 text-zinc-600 text-left">
+            <tr>
+              <th className="px-3 py-2 font-medium text-xs uppercase tracking-wide">
+                Family
+              </th>
+              <th className="px-3 py-2 font-medium text-xs uppercase tracking-wide">
+                Contact
+              </th>
+              <th className="px-3 py-2 font-medium text-xs uppercase tracking-wide">
+                Print status
+              </th>
+              <th className="px-3 py-2 font-medium text-xs uppercase tracking-wide">
+                Actions
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {list.map((f) => (
+              <tr key={f.id} className="border-t border-zinc-100">
+                <td className="px-3 py-3 align-top">
+                  <Link
+                    href={`/admin/printables/families/${f.id}`}
+                    className="font-medium text-zinc-900 hover:underline"
+                  >
+                    {f.registrant_name}
+                  </Link>
+                </td>
+                <td className="px-3 py-3 align-top text-zinc-700">
+                  <div>{f.email}</div>
+                  <div className="text-xs text-zinc-500">
+                    {f.country_code} {f.phone}
                   </div>
-                </Block>
-                <Block title="Check-out">
-                  <div>{formatDate(f.departure_date)}</div>
-                  <div className="text-zinc-600">
-                    {formatTime(f.departure_time)} · {f.departure_mode || "—"}
-                  </div>
-                </Block>
-
-                <Block title="ID type">
-                  <div>
-                    {f.id_type === "aadhaar" ? "Aadhaar (Indian)" : "Passport"}
-                  </div>
-                  {f.passport_country && (
-                    <div className="text-zinc-600">{f.passport_country}</div>
-                  )}
-                </Block>
-                <Block title="ID number">
-                  <div className="font-mono">{f.id_number}</div>
-                </Block>
-
-                <div className="col-span-2">
-                  <Block title="Meal preference (primary guest)">
+                </td>
+                <td className="px-3 py-3 align-top">
+                  {f.printed_at ? (
                     <div>
-                      {mealLabel(f.primary_meal_pref)}
-                      {f.primary_allergies && (
-                        <span className="text-amber-700">
-                          {" "}
-                          · Allergies: {f.primary_allergies}
-                        </span>
-                      )}
-                    </div>
-                  </Block>
-                </div>
-
-                <div className="col-span-2">
-                  <Block title={`Family members (${fam.length})`}>
-                    {fam.length > 0 ? (
-                      <ul className="space-y-1">
-                        {fam.map((m) => (
-                          <li key={m.id}>
-                            <span className="font-medium">{m.name}</span>
-                            <span className="text-zinc-500 text-xs">
-                              {" "}
-                              ({m.member_type}
-                              {m.age ? `, age ${m.age}` : ""})
-                            </span>
-                            <span className="text-zinc-600">
-                              {" "}— {mealLabel(m.meal_pref)}
-                              {m.allergies && (
-                                <span className="text-amber-700">
-                                  {" "}
-                                  · Allergies: {m.allergies}
-                                </span>
-                              )}
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <span className="text-zinc-500">None</span>
-                    )}
-                  </Block>
-                </div>
-
-                <div className="col-span-2">
-                  <Block title="Pickup">
-                    {f.needs_pickup ? (
-                      <div>
-                        <div>
-                          From:{" "}
-                          <span className="capitalize">
-                            {f.pickup_point_other ||
-                              f.pickup_point ||
-                              "—"}
-                          </span>
-                        </div>
-                        <div className="text-zinc-600">
-                          Flight/Train: {f.arrival_ref || "—"} · Location:{" "}
-                          {f.arrival_location || "—"}
-                        </div>
+                      <span className="inline-block text-xs px-2 py-0.5 rounded bg-green-100 text-green-800 font-medium">
+                        Printed × {f.printed_count}
+                      </span>
+                      <div className="text-xs text-zinc-500 mt-1">
+                        Last:{" "}
+                        {new Date(f.printed_at).toLocaleString("en-IN", {
+                          day: "numeric",
+                          month: "short",
+                          hour: "numeric",
+                          minute: "2-digit",
+                        })}
                       </div>
-                    ) : (
-                      <span className="text-zinc-500">Not required</span>
-                    )}
-                  </Block>
-                </div>
-
-                <div className="col-span-2">
-                  <Block title="Event participation">
-                    <ul className="space-y-0.5">
-                      <li>
-                        Lunch 17 Jul:{" "}
-                        {f.lunch_jul17 ? (
-                          <strong>Yes — {f.lunch_jul17_pax} pax</strong>
-                        ) : (
-                          "No"
-                        )}
-                      </li>
-                      <li>
-                        Lunch 19 Jul:{" "}
-                        {f.lunch_jul19 ? (
-                          <strong>Yes — {f.lunch_jul19_pax} pax</strong>
-                        ) : (
-                          "No"
-                        )}
-                      </li>
-                      <li>
-                        Trek (18 Jul, 7:30 AM):{" "}
-                        {f.trek_jul18 ? (
-                          <strong>Yes — {f.trek_jul18_pax} pax</strong>
-                        ) : (
-                          "No"
-                        )}
-                      </li>
-                      <li>
-                        Boat trip (18 Jul, 3:30 PM):{" "}
-                        {f.boat_jul18 ? (
-                          <strong>Yes — {f.boat_jul18_pax} pax</strong>
-                        ) : (
-                          "No"
-                        )}
-                      </li>
-                    </ul>
-                  </Block>
-                </div>
-
-                <div className="col-span-2">
-                  <Block title="Driver accommodation">
-                    {f.driver_accommodation_needed ? "Required" : "Not required"}
-                  </Block>
-                </div>
-
-                {f.notes && (
-                  <div className="col-span-2">
-                    <Block title="Guest notes">
-                      <p className="whitespace-pre-wrap">{f.notes}</p>
-                    </Block>
+                    </div>
+                  ) : (
+                    <span className="inline-block text-xs px-2 py-0.5 rounded bg-zinc-100 text-zinc-600 font-medium">
+                      Not printed
+                    </span>
+                  )}
+                </td>
+                <td className="px-3 py-3 align-top">
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <Link
+                      href={`/admin/printables/families/${f.id}`}
+                      className="text-xs px-2.5 py-1.5 border border-zinc-300 rounded hover:bg-zinc-50"
+                    >
+                      Open
+                    </Link>
+                    <MarkPrintedButton
+                      familyId={f.id}
+                      printedCount={f.printed_count}
+                    />
+                    {f.printed_count > 0 && <ResetPrintedButton familyId={f.id} />}
                   </div>
-                )}
-
-                <div className="col-span-2">
-                  <Block title="ID document">
-                    {f.idDocDataUrl ? (
-                      f.id_document_path?.toLowerCase().endsWith(".pdf") ? (
-                        <object
-                          data={f.idDocDataUrl}
-                          type="application/pdf"
-                          className="w-full h-[600px] border border-zinc-300"
-                        >
-                          <a
-                            href={f.idDocDataUrl}
-                            download={`id-${f.registrant_name}.pdf`}
-                            className="text-blue-700 underline"
-                          >
-                            Download PDF (your browser couldn&apos;t display it inline)
-                          </a>
-                        </object>
-                      ) : (
-                        <img
-                          src={f.idDocDataUrl}
-                          alt="ID document"
-                          className="max-w-md max-h-80 border border-zinc-300"
-                        />
-                      )
-                    ) : (
-                      <span className="text-zinc-500">No document on file</span>
-                    )}
-                  </Block>
-                </div>
-              </div>
-            </article>
-          );
-        })}
+                </td>
+              </tr>
+            ))}
+            {list.length === 0 && (
+              <tr>
+                <td colSpan={4} className="text-center text-zinc-500 py-8">
+                  No families match this filter.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
       </div>
     </div>
   );
 }
 
-function Block({ title, children }: { title: string; children: React.ReactNode }) {
+function FilterChip({
+  current,
+  value,
+  label,
+}: {
+  current: string;
+  value: string;
+  label: string;
+}) {
+  const active = current === value;
   return (
-    <div>
-      <div className="text-[10px] uppercase tracking-wider text-zinc-500 font-medium mb-1">
-        {title}
-      </div>
-      <div className="text-sm text-zinc-900">{children}</div>
-    </div>
+    <Link
+      href={value === "all" ? "/admin/printables/families" : `/admin/printables/families?filter=${value}`}
+      className={`text-sm px-3 py-1.5 rounded-md border ${
+        active
+          ? "bg-zinc-900 text-white border-zinc-900"
+          : "bg-white text-zinc-700 border-zinc-300 hover:border-zinc-400"
+      }`}
+    >
+      {label}
+    </Link>
   );
 }

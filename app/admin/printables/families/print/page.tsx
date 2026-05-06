@@ -1,0 +1,80 @@
+import { createAdminSupabase } from "@/lib/supabase/admin";
+import { fetchIdDocAsDataUrl } from "@/lib/printables";
+import FamilyPrintCard from "../FamilyPrintCard";
+import { PrintButton } from "../../PrintButton";
+import Link from "next/link";
+
+export const dynamic = "force-dynamic";
+
+export default async function FamiliesPrintAll({
+  searchParams,
+}: {
+  searchParams: Promise<{ filter?: string }>;
+}) {
+  const { filter = "all" } = await searchParams;
+  const supabase = createAdminSupabase();
+
+  let query = supabase
+    .from("families")
+    .select("*")
+    .order("registrant_name", { ascending: true });
+
+  if (filter === "unprinted") query = query.is("printed_at", null);
+  else if (filter === "printed") query = query.not("printed_at", "is", null);
+
+  const { data: families } = await query;
+
+  const { data: members } = await supabase
+    .from("members")
+    .select("*")
+    .order("created_at", { ascending: true });
+
+  const membersByFamily = new Map<string, typeof members>();
+  (members || []).forEach((m) => {
+    const arr = membersByFamily.get(m.family_id) || [];
+    arr.push(m);
+    membersByFamily.set(m.family_id, arr);
+  });
+
+  const familiesWithDocs = await Promise.all(
+    (families || []).map(async (f) => ({
+      ...f,
+      idDocDataUrl: f.id_document_path
+        ? await fetchIdDocAsDataUrl(f.id_document_path, supabase)
+        : null,
+    }))
+  );
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between print:hidden">
+        <div>
+          <Link
+            href="/admin/printables/families"
+            className="text-sm text-zinc-600 hover:text-zinc-900"
+          >
+            ← Back to family list
+          </Link>
+          <h1 className="text-2xl font-semibold text-zinc-900 mt-1">
+            Print {filter === "unprinted" ? "unprinted" : filter === "printed" ? "printed" : "all"} families
+          </h1>
+          <p className="text-sm text-zinc-500 mt-1">
+            {familiesWithDocs.length} families · one page per family.
+          </p>
+        </div>
+        <PrintButton label="Print all" />
+      </div>
+
+      <div className="space-y-6 print:space-y-0">
+        {familiesWithDocs.map((f) => (
+          <FamilyPrintCard
+            key={f.id}
+            family={f}
+            members={membersByFamily.get(f.id) || []}
+            idDocDataUrl={f.idDocDataUrl}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}

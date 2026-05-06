@@ -3,8 +3,8 @@ import Link from "next/link";
 const reports = [
   {
     href: "/admin/printables/families",
-    title: "Family details (all)",
-    desc: "One full page per family with ID number, ID photo, contact, meal selections, check-in/out times, pickup details and event opt-ins. For resort check-in.",
+    title: "Family details",
+    desc: "One full page per family with ID, contact, meal selections, check-in/out, pickup, event opt-ins. Print one at a time or in batches with print-status tracking.",
   },
   {
     href: "/admin/printables/meals",
