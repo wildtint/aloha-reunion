@@ -10,6 +10,7 @@ export type InitialMember = {
   age: string;
   meal: string;
   allergies: string;
+  has_existing_id_document?: boolean;
 };
 
 export type InitialData = {
@@ -26,6 +27,7 @@ export type InitialData = {
   id_number: string;
   passport_country: string;
   has_existing_id_document: boolean;
+  has_existing_visa_document: boolean;
 
   arrival_date: string;
   arrival_time: string;
@@ -246,11 +248,19 @@ export default function RegistrationForm({
                   <option value="jain">Jain</option>
                 </select>
               </Field>
+              <Field label="Allergies / dietary notes">
+                <input
+                  name="primary_allergies"
+                  defaultValue={initial?.primary_allergies}
+                  placeholder="e.g. peanut allergy, lactose intolerant — leave blank if none"
+                  className={inputCls}
+                />
+              </Field>
             </Section>
 
             <Section
               title="2. Family attending with you"
-              subtitle="Add your spouse and any children who will attend."
+              subtitle="Add your spouse and any children who will attend. The resort requires a photo ID for every adult guest (18+), so please upload one for each adult. ID for children is optional."
             >
               {members.map((m, idx) => (
                 <div
@@ -311,6 +321,7 @@ export default function RegistrationForm({
                       className={inputCls}
                     />
                   </Field>
+                  <MemberIdUpload member={m} idx={idx} mode={mode} />
                 </div>
               ))}
 
@@ -421,6 +432,39 @@ export default function RegistrationForm({
                   </p>
                 )}
               </Field>
+
+              {idType === "passport" && (
+                <>
+                  <div className="bg-amber-50 border border-amber-200 text-amber-900 text-sm rounded-md p-3">
+                    <strong>For international guests:</strong> the resort also
+                    requires a clear photo of your <strong>VISA page</strong>
+                    {" "}for check-in. Please upload it below in addition to your
+                    passport photo.
+                  </div>
+                  <Field
+                    label={
+                      mode === "edit" && initial?.has_existing_visa_document
+                        ? "Replace VISA page photo (optional — leave empty to keep existing)"
+                        : "Upload VISA page photo (JPG / PNG / PDF, max 5 MB)"
+                    }
+                    required={mode === "create"}
+                  >
+                    <input
+                      name="visa_document"
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,application/pdf"
+                      required={mode === "create"}
+                      className="block w-full text-sm text-zinc-600 file:mr-3 file:py-2 file:px-4 file:rounded-md file:border-0 file:bg-zinc-900 file:text-white hover:file:bg-zinc-700"
+                    />
+                    {mode === "edit" && initial?.has_existing_visa_document && (
+                      <p className="text-xs text-zinc-500 mt-1">
+                        A VISA document is already on file. Uploading a new file
+                        will replace it.
+                      </p>
+                    )}
+                  </Field>
+                </>
+              )}
             </Section>
 
             <Section title="4. Travel details">
@@ -634,14 +678,6 @@ export default function RegistrationForm({
                 initialYes={initial?.boat_jul18}
                 initialPax={initial?.boat_jul18_pax}
               />
-
-              <Field label="Allergies / dietary notes">
-                <input
-                  name="primary_allergies"
-                  defaultValue={initial?.primary_allergies}
-                  className={inputCls}
-                />
-              </Field>
             </Section>
 
             <Section
@@ -773,6 +809,49 @@ function AnimatedDots() {
       <span className="inline-block animate-pulse [animation-delay:0.2s]">.</span>
       <span className="inline-block animate-pulse [animation-delay:0.4s]">.</span>
     </span>
+  );
+}
+
+function MemberIdUpload({
+  member,
+  idx,
+  mode,
+}: {
+  member: InitialMember;
+  idx: number;
+  mode: Mode;
+}) {
+  // Adults: spouse always; child with age >= 18.
+  const ageNum = parseInt(member.age, 10);
+  const isAdult = member.type === "spouse" || (!isNaN(ageNum) && ageNum >= 18);
+  const hasExisting = !!member.has_existing_id_document;
+
+  const required = mode === "create" && isAdult && !hasExisting;
+
+  return (
+    <Field
+      label={
+        hasExisting
+          ? "Replace ID photo (optional — leave empty to keep existing)"
+          : isAdult
+            ? "Upload ID photo (required for adults)"
+            : "Upload ID photo (optional for children)"
+      }
+      required={required}
+    >
+      <input
+        name={`member_${idx}_id_document`}
+        type="file"
+        accept="image/jpeg,image/png,image/webp,application/pdf"
+        required={required}
+        className="block w-full text-sm text-zinc-600 file:mr-3 file:py-2 file:px-4 file:rounded-md file:border-0 file:bg-zinc-900 file:text-white hover:file:bg-zinc-700"
+      />
+      {hasExisting && (
+        <p className="text-xs text-zinc-500 mt-1">
+          A document is already on file. Uploading a new file will replace it.
+        </p>
+      )}
+    </Field>
   );
 }
 

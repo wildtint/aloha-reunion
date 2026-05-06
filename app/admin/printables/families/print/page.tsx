@@ -42,7 +42,26 @@ export default async function FamiliesPrintAll({
       idDocDataUrl: f.id_document_path
         ? await fetchIdDocAsDataUrl(f.id_document_path, supabase)
         : null,
+      visaDocDataUrl: f.visa_document_path
+        ? await fetchIdDocAsDataUrl(f.visa_document_path, supabase)
+        : null,
     }))
+  );
+
+  const memberDocsByFamily = new Map<string, Map<string, string | null>>();
+  await Promise.all(
+    (families || []).map(async (f) => {
+      const memberList = membersByFamily.get(f.id) || [];
+      const inner = new Map<string, string | null>();
+      await Promise.all(
+        memberList.map(async (m) => {
+          if (m.id_document_path) {
+            inner.set(m.id, await fetchIdDocAsDataUrl(m.id_document_path, supabase));
+          }
+        })
+      );
+      memberDocsByFamily.set(f.id, inner);
+    })
   );
 
   return (
@@ -72,6 +91,8 @@ export default async function FamiliesPrintAll({
             family={f}
             members={membersByFamily.get(f.id) || []}
             idDocDataUrl={f.idDocDataUrl}
+            visaDocDataUrl={f.visaDocDataUrl}
+            memberDocs={memberDocsByFamily.get(f.id) || new Map()}
           />
         ))}
       </div>

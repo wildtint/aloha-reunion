@@ -40,6 +40,7 @@ export default async function EditPage({
     id_number: family.id_number || "",
     passport_country: family.passport_country || "",
     has_existing_id_document: !!family.id_document_path,
+    has_existing_visa_document: !!family.visa_document_path,
 
     arrival_date: family.arrival_date || "2026-07-17",
     arrival_time: family.arrival_time?.slice(0, 5) || "",
@@ -72,6 +73,7 @@ export default async function EditPage({
       age: m.age?.toString() || "",
       meal: m.meal_pref || "",
       allergies: m.allergies || "",
+      has_existing_id_document: !!m.id_document_path,
     })),
   };
 

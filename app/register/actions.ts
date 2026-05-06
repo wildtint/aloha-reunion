@@ -11,17 +11,38 @@ type Member = {
   age: number | null;
   meal_pref: string | null;
   allergies: string | null;
+  id_document_path: string | null;
 };
+
+async function uploadIfPresent(
+  supabase: ReturnType<typeof createAdminSupabase>,
+  file: File | null
+): Promise<{ path: string | null; error?: string }> {
+  if (!file || file.size === 0) return { path: null };
+  const ext = file.name.split(".").pop()?.toLowerCase() || "bin";
+  const random = crypto.randomUUID();
+  const path = `${new Date().getFullYear()}/${random}.${ext}`;
+  const { error } = await supabase.storage
+    .from("id-documents")
+    .upload(path, file, { contentType: file.type });
+  if (error) return { path: null, error: error.message };
+  return { path };
+}
 
 export async function submitRegistration(formData: FormData) {
   const supabase = createAdminSupabase();
 
-  // Extract members (repeatable)
+  // Extract members + their ID uploads
   const members: Member[] = [];
   const memberCount = parseInt((formData.get("member_count") as string) || "0", 10);
   for (let i = 0; i < memberCount; i++) {
     const name = (formData.get(`member_${i}_name`) as string)?.trim();
     if (!name) continue;
+    const memberFile = formData.get(`member_${i}_id_document`) as File | null;
+    const upload = await uploadIfPresent(supabase, memberFile);
+    if (upload.error) {
+      return { ok: false, error: `Member ID upload failed: ${upload.error}` };
+    }
     members.push({
       member_type: formData.get(`member_${i}_type`) as "spouse" | "child",
       name,
@@ -30,26 +51,30 @@ export async function submitRegistration(formData: FormData) {
         : null,
       meal_pref: (formData.get(`member_${i}_meal`) as string) || null,
       allergies: (formData.get(`member_${i}_allergies`) as string) || null,
+      id_document_path: upload.path,
     });
   }
 
-  // Handle ID document upload
-  let id_document_path: string | null = null;
-  const idFile = formData.get("id_document") as File | null;
-  if (idFile && idFile.size > 0) {
-    const ext = idFile.name.split(".").pop()?.toLowerCase() || "bin";
-    const random = crypto.randomUUID();
-    const path = `${new Date().getFullYear()}/${random}.${ext}`;
-    const { error: uploadError } = await supabase.storage
-      .from("id-documents")
-      .upload(path, idFile, { contentType: idFile.type });
-    if (uploadError) {
-      return { ok: false, error: `ID upload failed: ${uploadError.message}` };
-    }
-    id_document_path = path;
+  // Primary ID document
+  const idUpload = await uploadIfPresent(supabase, formData.get("id_document") as File);
+  if (idUpload.error) {
+    return { ok: false, error: `ID upload failed: ${idUpload.error}` };
   }
 
-  // Build family record
+  // VISA document (international guests only)
+  const idType = formData.get("id_type") as "aadhaar" | "passport";
+  let visa_document_path: string | null = null;
+  if (idType === "passport") {
+    const visaUpload = await uploadIfPresent(
+      supabase,
+      formData.get("visa_document") as File
+    );
+    if (visaUpload.error) {
+      return { ok: false, error: `VISA upload failed: ${visaUpload.error}` };
+    }
+    visa_document_path = visaUpload.path;
+  }
+
   const family = {
     registrant_name: (formData.get("registrant_name") as string).trim(),
     email: (formData.get("email") as string).trim().toLowerCase(),
@@ -58,10 +83,11 @@ export async function submitRegistration(formData: FormData) {
     city: (formData.get("city") as string) || null,
     residence_country: (formData.get("residence_country") as string) || "India",
 
-    id_type: formData.get("id_type") as "aadhaar" | "passport",
+    id_type: idType,
     id_number: (formData.get("id_number") as string).trim(),
     passport_country: (formData.get("passport_country") as string) || null,
-    id_document_path,
+    id_document_path: idUpload.path,
+    visa_document_path,
 
     arrival_date: formData.get("arrival_date") as string,
     arrival_time: formData.get("arrival_time") as string,
@@ -115,7 +141,6 @@ export async function submitRegistration(formData: FormData) {
     }
   }
 
-  // Fire-and-forget confirmation email — don't block registration on email errors
   try {
     const h = await headers();
     const host = h.get("host");

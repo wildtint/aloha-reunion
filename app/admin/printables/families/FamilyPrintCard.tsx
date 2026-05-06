@@ -7,6 +7,7 @@ type Member = {
   age: number | null;
   meal_pref: string | null;
   allergies: string | null;
+  id_document_path?: string | null;
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -14,10 +15,14 @@ export default function FamilyPrintCard({
   family,
   members,
   idDocDataUrl,
+  visaDocDataUrl = null,
+  memberDocs = new Map<string, string | null>(),
 }: {
   family: any;
   members: Member[];
   idDocDataUrl: string | null;
+  visaDocDataUrl?: string | null;
+  memberDocs?: Map<string, string | null>;
 }) {
   return (
     <article className="bg-white border border-zinc-200 rounded-lg p-6 print:rounded-none print:border-0 print:p-0 print:break-after-page">
@@ -176,37 +181,69 @@ export default function FamilyPrintCard({
         )}
 
         <div className="col-span-2">
-          <Block title="ID document">
-            {idDocDataUrl ? (
-              family.id_document_path?.toLowerCase().endsWith(".pdf") ? (
-                <object
-                  data={idDocDataUrl}
-                  type="application/pdf"
-                  className="w-full h-[600px] border border-zinc-300"
-                >
-                  <a
-                    href={idDocDataUrl}
-                    download={`id-${family.registrant_name}.pdf`}
-                    className="text-blue-700 underline"
-                  >
-                    Download PDF (your browser couldn&apos;t display it inline)
-                  </a>
-                </object>
-              ) : (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={idDocDataUrl}
-                  alt="ID document"
-                  className="max-w-md max-h-80 border border-zinc-300"
-                />
-              )
-            ) : (
-              <span className="text-zinc-500">No document on file</span>
-            )}
+          <Block title={`ID document — ${family.registrant_name}`}>
+            <DocPreview
+              url={idDocDataUrl}
+              path={family.id_document_path}
+              filename={`id-${family.registrant_name}`}
+            />
           </Block>
         </div>
+
+        {family.id_type === "passport" && (
+          <div className="col-span-2">
+            <Block title={`VISA page — ${family.registrant_name}`}>
+              <DocPreview
+                url={visaDocDataUrl}
+                path={family.visa_document_path}
+                filename={`visa-${family.registrant_name}`}
+              />
+            </Block>
+          </div>
+        )}
+
+        {members
+          .filter((m) => m.id_document_path)
+          .map((m) => (
+            <div key={`doc-${m.id}`} className="col-span-2">
+              <Block title={`ID document — ${m.name} (${m.member_type})`}>
+                <DocPreview
+                  url={memberDocs.get(m.id) ?? null}
+                  path={m.id_document_path || null}
+                  filename={`id-${m.name}`}
+                />
+              </Block>
+            </div>
+          ))}
       </div>
     </article>
+  );
+}
+
+function DocPreview({
+  url,
+  path,
+  filename,
+}: {
+  url: string | null;
+  path: string | null;
+  filename: string;
+}) {
+  if (!url || !path) {
+    return <span className="text-zinc-500">No document on file</span>;
+  }
+  if (path.toLowerCase().endsWith(".pdf")) {
+    return (
+      <object data={url} type="application/pdf" className="w-full h-[600px] border border-zinc-300">
+        <a href={url} download={`${filename}.pdf`} className="text-blue-700 underline">
+          Download PDF (your browser couldn&apos;t display it inline)
+        </a>
+      </object>
+    );
+  }
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={url} alt="ID document" className="max-w-md max-h-80 border border-zinc-300" />
   );
 }
 

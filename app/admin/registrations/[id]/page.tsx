@@ -31,14 +31,22 @@ export default async function FamilyDetailPage({
     .eq("family_id", id)
     .order("member_type", { ascending: true });
 
-  // Generate signed URL for the ID document (5-min expiry)
-  let idDocUrl: string | null = null;
-  if (family.id_document_path) {
-    const { data: signed } = await supabase.storage
+  // Generate signed URLs (5-min expiry) for primary, visa, and member docs
+  async function signedUrl(path: string | null | undefined) {
+    if (!path) return null;
+    const { data } = await supabase.storage
       .from("id-documents")
-      .createSignedUrl(family.id_document_path, 300);
-    idDocUrl = signed?.signedUrl || null;
+      .createSignedUrl(path, 300);
+    return data?.signedUrl || null;
   }
+  const idDocUrl = await signedUrl(family.id_document_path);
+  const visaDocUrl = await signedUrl(family.visa_document_path);
+  const memberDocUrls = new Map<string, string | null>();
+  await Promise.all(
+    (members || []).map(async (m) => {
+      memberDocUrls.set(m.id, await signedUrl(m.id_document_path));
+    })
+  );
 
   return (
     <div className="space-y-6 max-w-3xl">
@@ -73,7 +81,7 @@ export default async function FamilyDetailPage({
         {members && members.length > 0 ? (
           <ul className="divide-y divide-zinc-100">
             {members.map((m) => (
-              <li key={m.id} className="py-3 flex justify-between items-start">
+              <li key={m.id} className="py-3 flex justify-between items-start gap-3">
                 <div>
                   <div className="font-medium text-zinc-900 capitalize">
                     {m.name} <span className="text-xs text-zinc-500 font-normal">({m.member_type}{m.age ? `, age ${m.age}` : ""})</span>
@@ -85,6 +93,18 @@ export default async function FamilyDetailPage({
                     </div>
                   )}
                 </div>
+                {memberDocUrls.get(m.id) ? (
+                  <a
+                    href={memberDocUrls.get(m.id)!}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-blue-700 hover:underline shrink-0"
+                  >
+                    View ID
+                  </a>
+                ) : (
+                  <span className="text-xs text-zinc-400 shrink-0">No ID</span>
+                )}
               </li>
             ))}
           </ul>
@@ -98,7 +118,7 @@ export default async function FamilyDetailPage({
         <Row label="Number" value={family.id_number} mono />
         {family.passport_country && <Row label="Country" value={family.passport_country} />}
         <div className="flex justify-between items-start py-2">
-          <span className="text-sm text-zinc-600">Document</span>
+          <span className="text-sm text-zinc-600">Primary ID document</span>
           {idDocUrl ? (
             <a
               href={idDocUrl}
@@ -106,12 +126,30 @@ export default async function FamilyDetailPage({
               rel="noopener noreferrer"
               className="text-sm text-blue-700 hover:underline"
             >
-              View document (link expires in 5 min)
+              View document
             </a>
           ) : (
             <span className="text-sm text-zinc-400">Not uploaded</span>
           )}
         </div>
+        {family.id_type === "passport" && (
+          <div className="flex justify-between items-start py-2">
+            <span className="text-sm text-zinc-600">VISA page</span>
+            {visaDocUrl ? (
+              <a
+                href={visaDocUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm text-blue-700 hover:underline"
+              >
+                View VISA
+              </a>
+            ) : (
+              <span className="text-sm text-zinc-400">Not uploaded</span>
+            )}
+          </div>
+        )}
+        <p className="text-xs text-zinc-400 mt-2">Links expire in 5 minutes.</p>
       </Card>
 
       <Card title="Travel">

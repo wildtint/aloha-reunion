@@ -33,6 +33,19 @@ export default async function FamilyPrintOne({
     ? await fetchIdDocAsDataUrl(family.id_document_path, supabase)
     : null;
 
+  const visaDocDataUrl = family.visa_document_path
+    ? await fetchIdDocAsDataUrl(family.visa_document_path, supabase)
+    : null;
+
+  const memberDocs = new Map<string, string | null>();
+  await Promise.all(
+    (members || []).map(async (m) => {
+      if (m.id_document_path) {
+        memberDocs.set(m.id, await fetchIdDocAsDataUrl(m.id_document_path, supabase));
+      }
+    })
+  );
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3 print:hidden">
@@ -65,6 +78,8 @@ export default async function FamilyPrintOne({
         family={family}
         members={members || []}
         idDocDataUrl={idDocDataUrl}
+        visaDocDataUrl={visaDocDataUrl}
+        memberDocs={memberDocs}
       />
     </div>
   );
