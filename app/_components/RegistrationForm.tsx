@@ -270,8 +270,8 @@ export default function RegistrationForm({
               title="2. Family attending with you"
               subtitle={
                 isInternational
-                  ? "Add your spouse and any children who will attend. The resort requires a photo ID for every adult guest (18+). As your country of residence is outside India, please also upload each adult's VISA page."
-                  : "Add your spouse and any children who will attend. The resort requires a photo ID for every adult guest (18+), so please upload one for each adult. ID for children is optional."
+                  ? "Add your spouse and any children who will attend. The resort requires a photo ID for every guest (adults and children). As your country of residence is outside India, please also upload each guest's VISA page."
+                  : "Add your spouse and any children who will attend. The resort requires a photo ID for every guest (adults and children), so please upload one for each."
               }
             >
               {members.map((m, idx) => (
@@ -831,20 +831,16 @@ function MemberVisaUpload({
   idx: number;
   mode: Mode;
 }) {
-  const ageNum = parseInt(member.age, 10);
-  const isAdult = member.type === "spouse" || (!isNaN(ageNum) && ageNum >= 18);
   const hasExisting = !!member.has_existing_visa_document;
-  // VISA required only for adult international guests on first registration
-  const required = mode === "create" && isAdult && !hasExisting;
+  // VISA required for every guest on first registration
+  const required = mode === "create" && !hasExisting;
 
   return (
     <Field
       label={
         hasExisting
           ? "Replace VISA page photo (optional — leave empty to keep existing)"
-          : isAdult
-            ? "Upload VISA page photo (required for adults)"
-            : "Upload VISA page photo (optional for children)"
+          : "Upload VISA page photo (required)"
       }
       required={required}
     >
@@ -873,21 +869,16 @@ function MemberIdUpload({
   idx: number;
   mode: Mode;
 }) {
-  // Adults: spouse always; child with age >= 18.
-  const ageNum = parseInt(member.age, 10);
-  const isAdult = member.type === "spouse" || (!isNaN(ageNum) && ageNum >= 18);
   const hasExisting = !!member.has_existing_id_document;
-
-  const required = mode === "create" && isAdult && !hasExisting;
+  // ID required for every guest (adults and children) on first registration
+  const required = mode === "create" && !hasExisting;
 
   return (
     <Field
       label={
         hasExisting
           ? "Replace ID photo (optional — leave empty to keep existing)"
-          : isAdult
-            ? "Upload ID photo (required for adults)"
-            : "Upload ID photo (optional for children)"
+          : "Upload ID photo (required)"
       }
       required={required}
     >
