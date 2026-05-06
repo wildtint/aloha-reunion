@@ -1,6 +1,8 @@
 "use server";
 
 import { createAdminSupabase } from "@/lib/supabase/admin";
+import { sendConfirmationEmail } from "@/lib/email";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 type Member = {
@@ -111,6 +113,20 @@ export async function submitRegistration(formData: FormData) {
     if (memberError) {
       return { ok: false, error: `Members save failed: ${memberError.message}` };
     }
+  }
+
+  // Fire-and-forget confirmation email — don't block registration on email errors
+  try {
+    const h = await headers();
+    const host = h.get("host");
+    await sendConfirmationEmail({
+      to: family.email,
+      name: family.registrant_name,
+      editToken: inserted.edit_token,
+      host,
+    });
+  } catch (e) {
+    console.error("Confirmation email failed:", e);
   }
 
   redirect(`/register/thanks?token=${inserted.edit_token}`);

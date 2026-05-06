@@ -1,15 +1,30 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
+import { sendEditLinkEmailAction } from "./sendActions";
 
 export default function CopyEditLink({
   editUrl,
   registrantName,
+  familyId,
+  email,
 }: {
   editUrl: string;
   registrantName: string;
+  familyId: string;
+  email: string;
 }) {
   const [copied, setCopied] = useState(false);
+  const [emailStatus, setEmailStatus] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  function sendEmail() {
+    setEmailStatus(null);
+    startTransition(async () => {
+      const r = await sendEditLinkEmailAction(familyId);
+      setEmailStatus(r.ok ? `Sent to ${email}` : `Error: ${r.error}`);
+    });
+  }
 
   async function copy() {
     try {
@@ -49,6 +64,13 @@ export default function CopyEditLink({
         >
           {copied ? "Copied ✓" : "Copy link"}
         </button>
+        <button
+          onClick={sendEmail}
+          disabled={pending}
+          className="text-xs px-3 py-1.5 bg-blue-700 hover:bg-blue-800 disabled:bg-blue-400 text-white rounded"
+        >
+          {pending ? "Sending..." : "Send by email"}
+        </button>
         <a
           href={`https://wa.me/?text=${waMessage}`}
           target="_blank"
@@ -61,12 +83,18 @@ export default function CopyEditLink({
           href={`mailto:?subject=${mailSubject}&body=${mailBody}`}
           className="text-xs px-3 py-1.5 border border-zinc-300 rounded hover:bg-white text-zinc-700"
         >
-          Share via email
+          Open mail app
         </a>
       </div>
+      {emailStatus && (
+        <p
+          className={`text-xs ${emailStatus.startsWith("Error") ? "text-red-700" : "text-green-700"}`}
+        >
+          {emailStatus}
+        </p>
+      )}
       <p className="text-xs text-zinc-500">
-        Anyone with this link can edit this registration. Once confirmation emails
-        are wired up, this link will also be sent automatically.
+        Anyone with this link can edit this registration.
       </p>
     </div>
   );

@@ -61,7 +61,12 @@ export default async function FamilyDetailPage({
             {family.city ? `${family.city}, ` : ""}{family.residence_country}
           </p>
         </div>
-        <CopyEditLink editUrl={editUrl} registrantName={family.registrant_name} />
+        <CopyEditLink
+          editUrl={editUrl}
+          registrantName={family.registrant_name}
+          familyId={family.id}
+          email={family.email}
+        />
       </div>
 
       <Card title="Family members">
