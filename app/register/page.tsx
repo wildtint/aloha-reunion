@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { submitRegistration } from "./actions";
 
 type MemberRow = {
@@ -34,6 +34,7 @@ export default function RegisterPage() {
   const [members, setMembers] = useState<MemberRow[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const submittingRef = useRef(false);
 
   const addMember = (type: "spouse" | "child") => {
     if (type === "spouse" && members.some((m) => m.type === "spouse")) return;
@@ -50,6 +51,8 @@ export default function RegisterPage() {
   };
 
   async function onSubmit(formData: FormData) {
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     setSubmitting(true);
     setError(null);
     formData.set("member_count", members.length.toString());
@@ -64,11 +67,32 @@ export default function RegisterPage() {
     if (result && !result.ok) {
       setError(result.error || "Something went wrong");
       setSubmitting(false);
+      submittingRef.current = false;
     }
+    // On success the server redirects, so we deliberately keep the
+    // overlay visible until the next page loads.
   }
 
   return (
     <main className="min-h-screen bg-zinc-50 py-10 px-4">
+      {submitting && (
+        <div className="fixed inset-0 bg-zinc-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl p-8 max-w-sm w-full text-center">
+            <div className="flex justify-center mb-4">
+              <div className="w-12 h-12 rounded-full border-4 border-zinc-200 border-t-zinc-900 animate-spin" />
+            </div>
+            <h2 className="text-lg font-semibold text-zinc-900 mb-1">
+              Submitting your registration<AnimatedDots />
+            </h2>
+            <p className="text-sm text-zinc-600">
+              Please wait. Do not close or refresh this page.
+            </p>
+            <p className="text-xs text-zinc-400 mt-3">
+              This can take a few seconds while your ID photo uploads.
+            </p>
+          </div>
+        </div>
+      )}
       <div className="max-w-2xl mx-auto bg-white rounded-2xl shadow-sm border border-zinc-200 p-8">
         <header className="border-b border-zinc-200 pb-6 mb-6">
           <p className="text-xs uppercase tracking-widest text-zinc-500 mb-1">
@@ -85,6 +109,7 @@ export default function RegisterPage() {
           </p>
         </header>
 
+        <fieldset disabled={submitting} className="contents">
         <form action={onSubmit} className="space-y-8">
           {/* Section 1: Primary guest */}
           <Section title="1. Your details">
@@ -477,11 +502,12 @@ export default function RegisterPage() {
           <button
             type="submit"
             disabled={submitting}
-            className="w-full bg-zinc-900 hover:bg-zinc-700 disabled:bg-zinc-400 text-white font-medium py-3 rounded-lg transition"
+            className="w-full bg-zinc-900 hover:bg-zinc-700 disabled:bg-zinc-400 disabled:cursor-not-allowed text-white font-medium py-3 rounded-lg transition"
           >
             {submitting ? "Submitting..." : "Submit registration"}
           </button>
         </form>
+        </fieldset>
 
         <footer className="mt-8 pt-6 border-t border-zinc-200 text-xs text-zinc-500 text-center space-y-1">
           <p>Questions?</p>
@@ -535,6 +561,16 @@ function Field({
       </span>
       {children}
     </label>
+  );
+}
+
+function AnimatedDots() {
+  return (
+    <span className="inline-block w-6 text-left">
+      <span className="inline-block animate-pulse">.</span>
+      <span className="inline-block animate-pulse [animation-delay:0.2s]">.</span>
+      <span className="inline-block animate-pulse [animation-delay:0.4s]">.</span>
+    </span>
   );
 }
 
