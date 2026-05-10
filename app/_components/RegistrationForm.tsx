@@ -479,7 +479,7 @@ export default function RegistrationForm({
 
             <Section title="4. Travel details">
               <p className="text-xs text-zinc-500">
-                Resort check-in is from 11:00 AM. Checkout is by 12:00 PM noon.
+                Resort check-in is from 3:00 PM. Checkout is by 11:30 AM.
               </p>
 
               <div className="space-y-3">
