@@ -42,7 +42,7 @@ export default async function Home() {
           Register now
         </a>
         <p className="text-xs text-zinc-400 mt-6">
-          Registration closes 10 July 2026
+          Registration closes 1 July 2026
         </p>
       </div>
     </main>

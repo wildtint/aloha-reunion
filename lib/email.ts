@@ -123,7 +123,7 @@ function renderEmailHtml({
                 </p>
                 <p style="margin:0 0 12px;font-size:12px;color:#71717a;">Or paste this link in your browser:</p>
                 <p style="margin:0 0 24px;font-size:12px;color:#52525b;word-break:break-all;font-family:Menlo,monospace;">${editUrl}</p>
-                <p style="margin:0 0 0;font-size:13px;color:#52525b;line-height:1.55;">Please complete or update your registration by <strong>10 July 2026</strong>.</p>
+                <p style="margin:0 0 0;font-size:13px;color:#52525b;line-height:1.55;">Please complete or update your registration by <strong>1 July 2026</strong>.</p>
               </td>
             </tr>
             <tr>
@@ -157,7 +157,7 @@ function renderEmailText({
     "",
     editUrl,
     "",
-    "Please complete or update your registration by 10 July 2026.",
+    "Please complete or update your registration by 1 July 2026.",
     "",
     "Aloha Batch · 35th Year Reunion",
     "17 – 19 July 2026 · Spice Village, Thekkady",

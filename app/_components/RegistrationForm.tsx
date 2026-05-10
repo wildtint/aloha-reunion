@@ -180,7 +180,7 @@ export default function RegistrationForm({
             </p>
             {mode === "create" ? (
               <p className="text-sm text-zinc-500 mt-1">
-                Please register by <strong>10 July 2026</strong>. One registration per family.
+                Please register by <strong>1 July 2026</strong>. One registration per family.
               </p>
             ) : (
               <p className="text-sm text-zinc-500 mt-1">
