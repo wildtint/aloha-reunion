@@ -8,6 +8,7 @@ type Member = {
   meal_pref: string | null;
   allergies: string | null;
   id_document_path?: string | null;
+  id_document_back_path?: string | null;
   visa_document_path?: string | null;
 };
 
@@ -16,15 +17,19 @@ export default function FamilyPrintCard({
   family,
   members,
   idDocDataUrl,
+  idDocBackDataUrl = null,
   visaDocDataUrl = null,
   memberDocs = new Map<string, string | null>(),
+  memberDocBacks = new Map<string, string | null>(),
   memberVisaDocs = new Map<string, string | null>(),
 }: {
   family: any;
   members: Member[];
   idDocDataUrl: string | null;
+  idDocBackDataUrl?: string | null;
   visaDocDataUrl?: string | null;
   memberDocs?: Map<string, string | null>;
+  memberDocBacks?: Map<string, string | null>;
   memberVisaDocs?: Map<string, string | null>;
 }) {
   return (
@@ -184,14 +189,26 @@ export default function FamilyPrintCard({
         )}
 
         <div className="col-span-2">
-          <Block title={`ID document — ${family.registrant_name}`}>
+          <Block title={`ID document — ${family.registrant_name} (front)`}>
             <DocPreview
               url={idDocDataUrl}
               path={family.id_document_path}
-              filename={`id-${family.registrant_name}`}
+              filename={`id-${family.registrant_name}-front`}
             />
           </Block>
         </div>
+
+        {family.id_document_back_path && (
+          <div className="col-span-2">
+            <Block title={`ID document — ${family.registrant_name} (back)`}>
+              <DocPreview
+                url={idDocBackDataUrl}
+                path={family.id_document_back_path}
+                filename={`id-${family.registrant_name}-back`}
+              />
+            </Block>
+          </div>
+        )}
 
         {family.visa_document_path && (
           <div className="col-span-2">
@@ -208,11 +225,20 @@ export default function FamilyPrintCard({
         {members.map((m) => (
           <div key={`docs-${m.id}`} className="col-span-2 space-y-4">
             {m.id_document_path && (
-              <Block title={`ID document — ${m.name} (${m.member_type})`}>
+              <Block title={`ID document — ${m.name} (${m.member_type}, front)`}>
                 <DocPreview
                   url={memberDocs.get(m.id) ?? null}
                   path={m.id_document_path || null}
-                  filename={`id-${m.name}`}
+                  filename={`id-${m.name}-front`}
+                />
+              </Block>
+            )}
+            {m.id_document_back_path && (
+              <Block title={`ID document — ${m.name} (${m.member_type}, back)`}>
+                <DocPreview
+                  url={memberDocBacks.get(m.id) ?? null}
+                  path={m.id_document_back_path || null}
+                  filename={`id-${m.name}-back`}
                 />
               </Block>
             )}

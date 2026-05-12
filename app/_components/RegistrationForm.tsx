@@ -11,6 +11,7 @@ export type InitialMember = {
   meal: string;
   allergies: string;
   has_existing_id_document?: boolean;
+  has_existing_id_document_back?: boolean;
   has_existing_visa_document?: boolean;
 };
 
@@ -28,6 +29,7 @@ export type InitialData = {
   id_number: string;
   passport_country: string;
   has_existing_id_document: boolean;
+  has_existing_id_document_back: boolean;
   has_existing_visa_document: boolean;
 
   arrival_date: string;
@@ -425,8 +427,8 @@ export default function RegistrationForm({
               <Field
                 label={
                   mode === "edit" && initial?.has_existing_id_document
-                    ? "Replace ID photo (optional — leave empty to keep existing)"
-                    : "Upload ID photo (JPG / PNG / PDF, max 5 MB)"
+                    ? "Replace ID photo — FRONT (optional)"
+                    : "Upload ID photo — FRONT (JPG / PNG / PDF, max 5 MB)"
                 }
                 required={mode === "create"}
               >
@@ -439,7 +441,27 @@ export default function RegistrationForm({
                 />
                 {mode === "edit" && initial?.has_existing_id_document && (
                   <p className="text-xs text-zinc-500 mt-1">
-                    A document is already on file. Uploading a new file will replace it.
+                    Front already on file. Uploading a new file will replace it.
+                  </p>
+                )}
+              </Field>
+
+              <Field
+                label={
+                  mode === "edit" && initial?.has_existing_id_document_back
+                    ? "Replace ID photo — BACK (optional)"
+                    : "Upload ID photo — BACK (optional, for cards with a back side)"
+                }
+              >
+                <input
+                  name="id_document_back"
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,application/pdf"
+                  className="block w-full text-sm text-zinc-600 file:mr-3 file:py-2 file:px-4 file:rounded-md file:border-0 file:bg-zinc-900 file:text-white hover:file:bg-zinc-700"
+                />
+                {mode === "edit" && initial?.has_existing_id_document_back && (
+                  <p className="text-xs text-zinc-500 mt-1">
+                    Back already on file. Uploading a new file will replace it.
                   </p>
                 )}
               </Field>
@@ -869,32 +891,55 @@ function MemberIdUpload({
   idx: number;
   mode: Mode;
 }) {
-  const hasExisting = !!member.has_existing_id_document;
-  // ID required for every guest (adults and children) on first registration
-  const required = mode === "create" && !hasExisting;
+  const hasFront = !!member.has_existing_id_document;
+  const hasBack = !!member.has_existing_id_document_back;
+  // Front required for every guest (adults and children) on first registration
+  const frontRequired = mode === "create" && !hasFront;
 
   return (
-    <Field
-      label={
-        hasExisting
-          ? "Replace ID photo (optional — leave empty to keep existing)"
-          : "Upload ID photo (required)"
-      }
-      required={required}
-    >
-      <input
-        name={`member_${idx}_id_document`}
-        type="file"
-        accept="image/jpeg,image/png,image/webp,application/pdf"
-        required={required}
-        className="block w-full text-sm text-zinc-600 file:mr-3 file:py-2 file:px-4 file:rounded-md file:border-0 file:bg-zinc-900 file:text-white hover:file:bg-zinc-700"
-      />
-      {hasExisting && (
-        <p className="text-xs text-zinc-500 mt-1">
-          A document is already on file. Uploading a new file will replace it.
-        </p>
-      )}
-    </Field>
+    <>
+      <Field
+        label={
+          hasFront
+            ? "Replace ID photo — FRONT (optional)"
+            : "Upload ID photo — FRONT (required)"
+        }
+        required={frontRequired}
+      >
+        <input
+          name={`member_${idx}_id_document`}
+          type="file"
+          accept="image/jpeg,image/png,image/webp,application/pdf"
+          required={frontRequired}
+          className="block w-full text-sm text-zinc-600 file:mr-3 file:py-2 file:px-4 file:rounded-md file:border-0 file:bg-zinc-900 file:text-white hover:file:bg-zinc-700"
+        />
+        {hasFront && (
+          <p className="text-xs text-zinc-500 mt-1">
+            Front already on file. Uploading a new file will replace it.
+          </p>
+        )}
+      </Field>
+
+      <Field
+        label={
+          hasBack
+            ? "Replace ID photo — BACK (optional)"
+            : "Upload ID photo — BACK (optional, for cards with a back side)"
+        }
+      >
+        <input
+          name={`member_${idx}_id_document_back`}
+          type="file"
+          accept="image/jpeg,image/png,image/webp,application/pdf"
+          className="block w-full text-sm text-zinc-600 file:mr-3 file:py-2 file:px-4 file:rounded-md file:border-0 file:bg-zinc-900 file:text-white hover:file:bg-zinc-700"
+        />
+        {hasBack && (
+          <p className="text-xs text-zinc-500 mt-1">
+            Back already on file. Uploading a new file will replace it.
+          </p>
+        )}
+      </Field>
+    </>
   );
 }
 

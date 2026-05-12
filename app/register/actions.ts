@@ -12,6 +12,7 @@ type Member = {
   meal_pref: string | null;
   allergies: string | null;
   id_document_path: string | null;
+  id_document_back_path: string | null;
   visa_document_path: string | null;
 };
 
@@ -86,6 +87,13 @@ export async function submitRegistration(formData: FormData) {
     if (idUpload.error) {
       return { ok: false, error: `Member ID upload failed: ${idUpload.error}` };
     }
+    const idBackUpload = await uploadIfPresent(
+      supabase,
+      formData.get(`member_${i}_id_document_back`) as File
+    );
+    if (idBackUpload.error) {
+      return { ok: false, error: `Member ID back upload failed: ${idBackUpload.error}` };
+    }
     let visaPath: string | null = null;
     if (isInternational) {
       const visaUpload = await uploadIfPresent(
@@ -106,14 +114,22 @@ export async function submitRegistration(formData: FormData) {
       meal_pref: (formData.get(`member_${i}_meal`) as string) || null,
       allergies: (formData.get(`member_${i}_allergies`) as string) || null,
       id_document_path: idUpload.path,
+      id_document_back_path: idBackUpload.path,
       visa_document_path: visaPath,
     });
   }
 
-  // Primary ID document
+  // Primary ID document (front + optional back)
   const idUpload = await uploadIfPresent(supabase, primaryIdFile);
   if (idUpload.error) {
     return { ok: false, error: `ID upload failed: ${idUpload.error}` };
+  }
+  const idBackUpload = await uploadIfPresent(
+    supabase,
+    formData.get("id_document_back") as File
+  );
+  if (idBackUpload.error) {
+    return { ok: false, error: `ID back upload failed: ${idBackUpload.error}` };
   }
 
   // VISA document (international guests only — based on residence country)
@@ -142,6 +158,7 @@ export async function submitRegistration(formData: FormData) {
     id_number: (formData.get("id_number") as string).trim(),
     passport_country: idType === "passport" ? residenceCountry || null : null,
     id_document_path: idUpload.path,
+    id_document_back_path: idBackUpload.path,
     visa_document_path,
 
     arrival_date: formData.get("arrival_date") as string,

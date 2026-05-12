@@ -11,6 +11,7 @@ type Member = {
   meal_pref: string | null;
   allergies: string | null;
   id_document_path: string | null;
+  id_document_back_path: string | null;
   visa_document_path: string | null;
 };
 
@@ -44,7 +45,7 @@ export async function updateRegistration(token: string, formData: FormData) {
 
   const { data: existing, error: lookupError } = await supabase
     .from("families")
-    .select("id, id_document_path, visa_document_path")
+    .select("id, id_document_path, id_document_back_path, visa_document_path")
     .eq("edit_token", token)
     .single();
 
@@ -62,20 +63,25 @@ export async function updateRegistration(token: string, formData: FormData) {
   // Pull existing members so we can preserve their ID + VISA docs if no replacement uploaded
   const { data: existingMembers } = await supabase
     .from("members")
-    .select("id, name, id_document_path, visa_document_path")
+    .select("id, name, id_document_path, id_document_back_path, visa_document_path")
     .eq("family_id", familyId);
   const existingMemberByName = new Map<
     string,
-    { id_document_path: string | null; visa_document_path: string | null }
+    {
+      id_document_path: string | null;
+      id_document_back_path: string | null;
+      visa_document_path: string | null;
+    }
   >();
   (existingMembers || []).forEach((m) => {
     existingMemberByName.set(m.name.trim().toLowerCase(), {
       id_document_path: m.id_document_path,
+      id_document_back_path: m.id_document_back_path,
       visa_document_path: m.visa_document_path,
     });
   });
   const oldMemberDocPaths = (existingMembers || [])
-    .flatMap((m) => [m.id_document_path, m.visa_document_path])
+    .flatMap((m) => [m.id_document_path, m.id_document_back_path, m.visa_document_path])
     .filter((p): p is string => !!p);
 
   // Build new members
@@ -100,6 +106,23 @@ export async function updateRegistration(token: string, formData: FormData) {
       if (prev?.id_document_path) {
         idPath = prev.id_document_path;
         preservedMemberDocs.push(prev.id_document_path);
+      }
+    }
+
+    // ID back (optional)
+    const idBackUpload = await uploadIfPresent(
+      supabase,
+      formData.get(`member_${i}_id_document_back`) as File
+    );
+    if (idBackUpload.error) {
+      return { ok: false, error: `Member ID back upload failed: ${idBackUpload.error}` };
+    }
+    let idBackPath: string | null = idBackUpload.path;
+    if (!idBackPath) {
+      const prev = existingMemberByName.get(name.toLowerCase());
+      if (prev?.id_document_back_path) {
+        idBackPath = prev.id_document_back_path;
+        preservedMemberDocs.push(prev.id_document_back_path);
       }
     }
 
@@ -132,11 +155,12 @@ export async function updateRegistration(token: string, formData: FormData) {
       meal_pref: (formData.get(`member_${i}_meal`) as string) || null,
       allergies: (formData.get(`member_${i}_allergies`) as string) || null,
       id_document_path: idPath,
+      id_document_back_path: idBackPath,
       visa_document_path: visaPath,
     });
   }
 
-  // Optional new primary ID document
+  // Optional new primary ID document (front)
   let id_document_path = existing.id_document_path as string | null;
   const oldPrimaryPath = id_document_path;
   const idUpload = await uploadIfPresent(
@@ -149,6 +173,21 @@ export async function updateRegistration(token: string, formData: FormData) {
   if (idUpload.path) {
     id_document_path = idUpload.path;
     if (oldPrimaryPath) await safeRemove(supabase, [oldPrimaryPath]);
+  }
+
+  // Optional new primary ID document (back)
+  let id_document_back_path = existing.id_document_back_path as string | null;
+  const oldPrimaryBackPath = id_document_back_path;
+  const idBackUpload = await uploadIfPresent(
+    supabase,
+    formData.get("id_document_back") as File
+  );
+  if (idBackUpload.error) {
+    return { ok: false, error: `ID back upload failed: ${idBackUpload.error}` };
+  }
+  if (idBackUpload.path) {
+    id_document_back_path = idBackUpload.path;
+    if (oldPrimaryBackPath) await safeRemove(supabase, [oldPrimaryBackPath]);
   }
 
   // Optional new VISA document — based on residence country
@@ -185,6 +224,7 @@ export async function updateRegistration(token: string, formData: FormData) {
     id_number: (formData.get("id_number") as string).trim(),
     passport_country: idType === "passport" ? residenceCountry || null : null,
     id_document_path,
+    id_document_back_path,
     visa_document_path,
 
     arrival_date: formData.get("arrival_date") as string,

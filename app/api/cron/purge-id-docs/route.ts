@@ -49,14 +49,14 @@ export async function GET(request: NextRequest) {
   // Collect every uploaded document path
   const { data: families, error: famErr } = await supabase
     .from("families")
-    .select("id, id_document_path, visa_document_path");
+    .select("id, id_document_path, id_document_back_path, visa_document_path");
   if (famErr) {
     return Response.json({ ok: false, error: famErr.message }, { status: 500 });
   }
 
   const { data: members, error: memErr } = await supabase
     .from("members")
-    .select("id, id_document_path, visa_document_path");
+    .select("id, id_document_path, id_document_back_path, visa_document_path");
   if (memErr) {
     return Response.json({ ok: false, error: memErr.message }, { status: 500 });
   }
@@ -64,10 +64,12 @@ export async function GET(request: NextRequest) {
   const paths: string[] = [];
   (families || []).forEach((f) => {
     if (f.id_document_path) paths.push(f.id_document_path);
+    if (f.id_document_back_path) paths.push(f.id_document_back_path);
     if (f.visa_document_path) paths.push(f.visa_document_path);
   });
   (members || []).forEach((m) => {
     if (m.id_document_path) paths.push(m.id_document_path);
+    if (m.id_document_back_path) paths.push(m.id_document_back_path);
     if (m.visa_document_path) paths.push(m.visa_document_path);
   });
 
@@ -89,12 +91,20 @@ export async function GET(request: NextRequest) {
   // Clear the path columns so the admin UI no longer references them
   await supabase
     .from("families")
-    .update({ id_document_path: null, visa_document_path: null })
+    .update({
+      id_document_path: null,
+      id_document_back_path: null,
+      visa_document_path: null,
+    })
     .not("id", "is", null);
 
   await supabase
     .from("members")
-    .update({ id_document_path: null, visa_document_path: null })
+    .update({
+      id_document_path: null,
+      id_document_back_path: null,
+      visa_document_path: null,
+    })
     .not("id", "is", null);
 
   return Response.json({

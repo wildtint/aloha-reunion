@@ -40,12 +40,15 @@ export default async function FamilyDetailPage({
     return data?.signedUrl || null;
   }
   const idDocUrl = await signedUrl(family.id_document_path);
+  const idDocBackUrl = await signedUrl(family.id_document_back_path);
   const visaDocUrl = await signedUrl(family.visa_document_path);
   const memberDocUrls = new Map<string, string | null>();
+  const memberDocBackUrls = new Map<string, string | null>();
   const memberVisaUrls = new Map<string, string | null>();
   await Promise.all(
     (members || []).map(async (m) => {
       memberDocUrls.set(m.id, await signedUrl(m.id_document_path));
+      memberDocBackUrls.set(m.id, await signedUrl(m.id_document_back_path));
       memberVisaUrls.set(m.id, await signedUrl(m.visa_document_path));
     })
   );
@@ -103,10 +106,20 @@ export default async function FamilyDetailPage({
                       rel="noopener noreferrer"
                       className="text-blue-700 hover:underline"
                     >
-                      View ID
+                      View ID (front)
                     </a>
                   ) : (
                     <span className="text-zinc-400">No ID</span>
+                  )}
+                  {memberDocBackUrls.get(m.id) && (
+                    <a
+                      href={memberDocBackUrls.get(m.id)!}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-700 hover:underline"
+                    >
+                      View ID (back)
+                    </a>
                   )}
                   {memberVisaUrls.get(m.id) && (
                     <a
@@ -132,7 +145,7 @@ export default async function FamilyDetailPage({
         <Row label="Number" value={family.id_number} mono />
         {family.passport_country && <Row label="Country" value={family.passport_country} />}
         <div className="flex justify-between items-start py-2">
-          <span className="text-sm text-zinc-600">Primary ID document</span>
+          <span className="text-sm text-zinc-600">Primary ID — front</span>
           {idDocUrl ? (
             <a
               href={idDocUrl}
@@ -140,7 +153,22 @@ export default async function FamilyDetailPage({
               rel="noopener noreferrer"
               className="text-sm text-blue-700 hover:underline"
             >
-              View document
+              View front
+            </a>
+          ) : (
+            <span className="text-sm text-zinc-400">Not uploaded</span>
+          )}
+        </div>
+        <div className="flex justify-between items-start py-2">
+          <span className="text-sm text-zinc-600">Primary ID — back</span>
+          {idDocBackUrl ? (
+            <a
+              href={idDocBackUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm text-blue-700 hover:underline"
+            >
+              View back
             </a>
           ) : (
             <span className="text-sm text-zinc-400">Not uploaded</span>

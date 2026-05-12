@@ -42,6 +42,9 @@ export default async function FamiliesPrintAll({
       idDocDataUrl: f.id_document_path
         ? await fetchIdDocAsDataUrl(f.id_document_path, supabase)
         : null,
+      idDocBackDataUrl: f.id_document_back_path
+        ? await fetchIdDocAsDataUrl(f.id_document_back_path, supabase)
+        : null,
       visaDocDataUrl: f.visa_document_path
         ? await fetchIdDocAsDataUrl(f.visa_document_path, supabase)
         : null,
@@ -49,16 +52,21 @@ export default async function FamiliesPrintAll({
   );
 
   const memberDocsByFamily = new Map<string, Map<string, string | null>>();
+  const memberDocBacksByFamily = new Map<string, Map<string, string | null>>();
   const memberVisaDocsByFamily = new Map<string, Map<string, string | null>>();
   await Promise.all(
     (families || []).map(async (f) => {
       const memberList = membersByFamily.get(f.id) || [];
       const idInner = new Map<string, string | null>();
+      const idBackInner = new Map<string, string | null>();
       const visaInner = new Map<string, string | null>();
       await Promise.all(
         memberList.map(async (m) => {
           if (m.id_document_path) {
             idInner.set(m.id, await fetchIdDocAsDataUrl(m.id_document_path, supabase));
+          }
+          if (m.id_document_back_path) {
+            idBackInner.set(m.id, await fetchIdDocAsDataUrl(m.id_document_back_path, supabase));
           }
           if (m.visa_document_path) {
             visaInner.set(m.id, await fetchIdDocAsDataUrl(m.visa_document_path, supabase));
@@ -66,6 +74,7 @@ export default async function FamiliesPrintAll({
         })
       );
       memberDocsByFamily.set(f.id, idInner);
+      memberDocBacksByFamily.set(f.id, idBackInner);
       memberVisaDocsByFamily.set(f.id, visaInner);
     })
   );
@@ -97,8 +106,10 @@ export default async function FamiliesPrintAll({
             family={f}
             members={membersByFamily.get(f.id) || []}
             idDocDataUrl={f.idDocDataUrl}
+            idDocBackDataUrl={f.idDocBackDataUrl}
             visaDocDataUrl={f.visaDocDataUrl}
             memberDocs={memberDocsByFamily.get(f.id) || new Map()}
+            memberDocBacks={memberDocBacksByFamily.get(f.id) || new Map()}
             memberVisaDocs={memberVisaDocsByFamily.get(f.id) || new Map()}
           />
         ))}

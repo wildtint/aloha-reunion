@@ -33,16 +33,24 @@ export default async function FamilyPrintOne({
     ? await fetchIdDocAsDataUrl(family.id_document_path, supabase)
     : null;
 
+  const idDocBackDataUrl = family.id_document_back_path
+    ? await fetchIdDocAsDataUrl(family.id_document_back_path, supabase)
+    : null;
+
   const visaDocDataUrl = family.visa_document_path
     ? await fetchIdDocAsDataUrl(family.visa_document_path, supabase)
     : null;
 
   const memberDocs = new Map<string, string | null>();
+  const memberDocBacks = new Map<string, string | null>();
   const memberVisaDocs = new Map<string, string | null>();
   await Promise.all(
     (members || []).map(async (m) => {
       if (m.id_document_path) {
         memberDocs.set(m.id, await fetchIdDocAsDataUrl(m.id_document_path, supabase));
+      }
+      if (m.id_document_back_path) {
+        memberDocBacks.set(m.id, await fetchIdDocAsDataUrl(m.id_document_back_path, supabase));
       }
       if (m.visa_document_path) {
         memberVisaDocs.set(m.id, await fetchIdDocAsDataUrl(m.visa_document_path, supabase));
@@ -82,8 +90,10 @@ export default async function FamilyPrintOne({
         family={family}
         members={members || []}
         idDocDataUrl={idDocDataUrl}
+        idDocBackDataUrl={idDocBackDataUrl}
         visaDocDataUrl={visaDocDataUrl}
         memberDocs={memberDocs}
+        memberDocBacks={memberDocBacks}
         memberVisaDocs={memberVisaDocs}
       />
     </div>
