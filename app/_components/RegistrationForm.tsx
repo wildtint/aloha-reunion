@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { flushSync } from "react-dom";
 
 export type Mode = "create" | "edit";
 
@@ -124,11 +125,18 @@ export default function RegistrationForm({
     );
   };
 
-  async function onSubmit(formData: FormData) {
+  async function handleFormSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
     if (submittingRef.current) return;
     submittingRef.current = true;
-    setSubmitting(true);
-    setError(null);
+
+    // Force the modal to paint BEFORE we start the (slow) upload.
+    flushSync(() => {
+      setSubmitting(true);
+      setError(null);
+    });
+
+    const formData = new FormData(e.currentTarget);
     formData.set("member_count", members.length.toString());
     members.forEach((m, i) => {
       formData.set(`member_${i}_type`, m.type);
@@ -137,12 +145,16 @@ export default function RegistrationForm({
       formData.set(`member_${i}_meal`, m.meal);
       formData.set(`member_${i}_allergies`, m.allergies);
     });
+
     const result = await submitAction(formData);
     if (result && !result.ok) {
       setError(result.error || "Something went wrong");
       setSubmitting(false);
       submittingRef.current = false;
+      // Scroll to show error
+      window.scrollTo({ top: 0, behavior: "smooth" });
     }
+    // On success the server redirects, so we leave the overlay up.
   }
 
   return (
@@ -161,8 +173,9 @@ export default function RegistrationForm({
               Please wait. Do not close or refresh this page.
             </p>
             {mode === "create" && (
-              <p className="text-xs text-zinc-400 mt-3">
-                This can take a few seconds while your ID photo uploads.
+              <p className="text-xs text-zinc-500 mt-3 leading-relaxed">
+                This may take <strong>10 – 30 seconds</strong> while your ID and
+                VISA photos are uploaded.
               </p>
             )}
           </div>
@@ -194,7 +207,7 @@ export default function RegistrationForm({
         )}
 
         <fieldset disabled={submitting} className="contents">
-          <form action={onSubmit} className="space-y-8">
+          <form onSubmit={handleFormSubmit} className="space-y-8">
             <Section title="1. Your details">
               <Field label="Full name" required>
                 <input
@@ -760,6 +773,11 @@ export default function RegistrationForm({
                 {error}
               </div>
             )}
+
+            <p className="text-xs text-zinc-500 text-center">
+              Submitting may take <strong>10 – 30 seconds</strong> while your
+              photos upload. Please don&apos;t close the page after clicking.
+            </p>
 
             <button
               type="submit"
