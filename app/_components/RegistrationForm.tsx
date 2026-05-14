@@ -304,14 +304,152 @@ export default function RegistrationForm({
                   className={inputCls}
                 />
               </Field>
+
+              <div className="pt-2 border-t border-zinc-200 space-y-3">
+                <p className="text-sm font-medium text-zinc-700">
+                  Your ID verification
+                </p>
+                <p className="text-xs text-zinc-500 -mt-2">
+                  Required by the resort for check-in. Stored securely and deleted
+                  30 days after the event.
+                </p>
+
+                <Field label="ID type" required>
+                  <div className="flex gap-4 mt-1">
+                    <label className="flex items-center gap-2 text-sm">
+                      <input
+                        type="radio"
+                        name="id_type"
+                        value="aadhaar"
+                        checked={idType === "aadhaar"}
+                        onChange={() => setIdType("aadhaar")}
+                        required
+                      />
+                      Aadhaar (Indian)
+                    </label>
+                    <label className="flex items-center gap-2 text-sm">
+                      <input
+                        type="radio"
+                        name="id_type"
+                        value="passport"
+                        checked={idType === "passport"}
+                        onChange={() => setIdType("passport")}
+                      />
+                      Passport (International)
+                    </label>
+                  </div>
+                </Field>
+
+                {idType === "aadhaar" ? (
+                  <Field label="Aadhaar number" required>
+                    <input
+                      name="id_number"
+                      required
+                      pattern="[0-9\s]{12,14}"
+                      placeholder="12-digit Aadhaar"
+                      defaultValue={initial?.id_type === "aadhaar" ? initial?.id_number : ""}
+                      className={inputCls}
+                    />
+                  </Field>
+                ) : (
+                  <>
+                    <Field label="Passport number" required>
+                      <input
+                        name="id_number"
+                        required
+                        defaultValue={initial?.id_type === "passport" ? initial?.id_number : ""}
+                        className={inputCls}
+                      />
+                    </Field>
+                    <p className="text-xs text-zinc-500 -mt-1">
+                      Passport country: <strong>{residenceCountry || "—"}</strong>{" "}
+                      (taken from your country of residence above).
+                    </p>
+                  </>
+                )}
+
+                <Field
+                  label={
+                    mode === "edit" && initial?.has_existing_id_document
+                      ? "Replace your ID photo — FRONT (optional)"
+                      : "Upload your ID photo — FRONT (JPG / PNG / PDF, max 5 MB)"
+                  }
+                  required={mode === "create"}
+                >
+                  <input
+                    name="id_document"
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,application/pdf"
+                    required={mode === "create"}
+                    className="block w-full text-sm text-zinc-600 file:mr-3 file:py-2 file:px-4 file:rounded-md file:border-0 file:bg-zinc-900 file:text-white hover:file:bg-zinc-700"
+                  />
+                  {mode === "edit" && initial?.has_existing_id_document && (
+                    <p className="text-xs text-zinc-500 mt-1">
+                      Front already on file. Uploading a new file will replace it.
+                    </p>
+                  )}
+                </Field>
+
+                <Field
+                  label={
+                    mode === "edit" && initial?.has_existing_id_document_back
+                      ? "Replace your ID photo — BACK (optional)"
+                      : "Upload your ID photo — BACK (optional, for cards with a back side)"
+                  }
+                >
+                  <input
+                    name="id_document_back"
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,application/pdf"
+                    className="block w-full text-sm text-zinc-600 file:mr-3 file:py-2 file:px-4 file:rounded-md file:border-0 file:bg-zinc-900 file:text-white hover:file:bg-zinc-700"
+                  />
+                  {mode === "edit" && initial?.has_existing_id_document_back && (
+                    <p className="text-xs text-zinc-500 mt-1">
+                      Back already on file. Uploading a new file will replace it.
+                    </p>
+                  )}
+                </Field>
+
+                {isInternational && (
+                  <>
+                    <div className="bg-amber-50 border border-amber-200 text-amber-900 text-sm rounded-md p-3">
+                      <strong>For international guests:</strong> the resort also
+                      requires a clear photo of your <strong>VISA page</strong>{" "}
+                      for check-in. Please upload it below.
+                    </div>
+                    <Field
+                      label={
+                        mode === "edit" && initial?.has_existing_visa_document
+                          ? "Replace your VISA page photo (optional)"
+                          : "Upload your VISA page photo (required)"
+                      }
+                      required={mode === "create"}
+                    >
+                      <input
+                        name="visa_document"
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp,application/pdf"
+                        required={mode === "create"}
+                        className="block w-full text-sm text-zinc-600 file:mr-3 file:py-2 file:px-4 file:rounded-md file:border-0 file:bg-zinc-900 file:text-white hover:file:bg-zinc-700"
+                      />
+                      {mode === "edit" && initial?.has_existing_visa_document && (
+                        <p className="text-xs text-zinc-500 mt-1">
+                          A VISA document is already on file. Uploading a new
+                          file will replace it.
+                        </p>
+                      )}
+                    </Field>
+                  </>
+                )}
+              </div>
             </Section>
 
             <Section
               title="2. Family attending with you"
               subtitle={
                 isInternational
-                  ? "Add your spouse and any children who will attend. The resort requires a photo ID for every guest (adults and children). As your country of residence is outside India, please also upload each guest's VISA page."
-                  : "Add your spouse and any children who will attend. The resort requires a photo ID for every guest (adults and children), so please upload one for each."
+                  ? "Add your spouse and any children who will attend. IMPORTANT: in this section please upload each FAMILY MEMBER's own ID photos (not yours). The resort requires an ID for every guest (adults and children). As your country of residence is outside India, please also upload each guest's VISA page."
+                  : "Add your spouse and any children who will attend. IMPORTANT: in this section please upload each FAMILY MEMBER's own ID photos (not yours). The resort requires an ID for every guest (adults and children)."
               }
             >
               {members.map((m, idx) => (
@@ -400,144 +538,7 @@ export default function RegistrationForm({
               </div>
             </Section>
 
-            <Section
-              title="3. ID verification"
-              subtitle={
-                mode === "edit"
-                  ? "Update your ID photo only if you want to replace it. Leave the file field empty to keep the one already on file."
-                  : "For resort check-in. Stored securely and deleted 30 days after the event."
-              }
-            >
-              <Field label="ID type" required>
-                <div className="flex gap-4 mt-1">
-                  <label className="flex items-center gap-2 text-sm">
-                    <input
-                      type="radio"
-                      name="id_type"
-                      value="aadhaar"
-                      checked={idType === "aadhaar"}
-                      onChange={() => setIdType("aadhaar")}
-                      required
-                    />
-                    Aadhaar (Indian)
-                  </label>
-                  <label className="flex items-center gap-2 text-sm">
-                    <input
-                      type="radio"
-                      name="id_type"
-                      value="passport"
-                      checked={idType === "passport"}
-                      onChange={() => setIdType("passport")}
-                    />
-                    Passport (International)
-                  </label>
-                </div>
-              </Field>
-
-              {idType === "aadhaar" ? (
-                <Field label="Aadhaar number" required>
-                  <input
-                    name="id_number"
-                    required
-                    pattern="[0-9\s]{12,14}"
-                    placeholder="12-digit Aadhaar"
-                    defaultValue={initial?.id_type === "aadhaar" ? initial?.id_number : ""}
-                    className={inputCls}
-                  />
-                </Field>
-              ) : (
-                <>
-                  <Field label="Passport number" required>
-                    <input
-                      name="id_number"
-                      required
-                      defaultValue={initial?.id_type === "passport" ? initial?.id_number : ""}
-                      className={inputCls}
-                    />
-                  </Field>
-                  <p className="text-xs text-zinc-500 -mt-1">
-                    Passport country: <strong>{residenceCountry || "—"}</strong> (taken
-                    from your country of residence above).
-                  </p>
-                </>
-              )}
-
-              <Field
-                label={
-                  mode === "edit" && initial?.has_existing_id_document
-                    ? "Replace ID photo — FRONT (optional)"
-                    : "Upload ID photo — FRONT (JPG / PNG / PDF, max 5 MB)"
-                }
-                required={mode === "create"}
-              >
-                <input
-                  name="id_document"
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp,application/pdf"
-                  required={mode === "create"}
-                  className="block w-full text-sm text-zinc-600 file:mr-3 file:py-2 file:px-4 file:rounded-md file:border-0 file:bg-zinc-900 file:text-white hover:file:bg-zinc-700"
-                />
-                {mode === "edit" && initial?.has_existing_id_document && (
-                  <p className="text-xs text-zinc-500 mt-1">
-                    Front already on file. Uploading a new file will replace it.
-                  </p>
-                )}
-              </Field>
-
-              <Field
-                label={
-                  mode === "edit" && initial?.has_existing_id_document_back
-                    ? "Replace ID photo — BACK (optional)"
-                    : "Upload ID photo — BACK (optional, for cards with a back side)"
-                }
-              >
-                <input
-                  name="id_document_back"
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp,application/pdf"
-                  className="block w-full text-sm text-zinc-600 file:mr-3 file:py-2 file:px-4 file:rounded-md file:border-0 file:bg-zinc-900 file:text-white hover:file:bg-zinc-700"
-                />
-                {mode === "edit" && initial?.has_existing_id_document_back && (
-                  <p className="text-xs text-zinc-500 mt-1">
-                    Back already on file. Uploading a new file will replace it.
-                  </p>
-                )}
-              </Field>
-
-              {isInternational && (
-                <>
-                  <div className="bg-amber-50 border border-amber-200 text-amber-900 text-sm rounded-md p-3">
-                    <strong>For international guests:</strong> the resort also
-                    requires a clear photo of your <strong>VISA page</strong>
-                    {" "}for check-in. Please upload it below.
-                  </div>
-                  <Field
-                    label={
-                      mode === "edit" && initial?.has_existing_visa_document
-                        ? "Replace your VISA page photo (optional — leave empty to keep existing)"
-                        : "Upload your VISA page photo (JPG / PNG / PDF, max 5 MB)"
-                    }
-                    required={mode === "create"}
-                  >
-                    <input
-                      name="visa_document"
-                      type="file"
-                      accept="image/jpeg,image/png,image/webp,application/pdf"
-                      required={mode === "create"}
-                      className="block w-full text-sm text-zinc-600 file:mr-3 file:py-2 file:px-4 file:rounded-md file:border-0 file:bg-zinc-900 file:text-white hover:file:bg-zinc-700"
-                    />
-                    {mode === "edit" && initial?.has_existing_visa_document && (
-                      <p className="text-xs text-zinc-500 mt-1">
-                        A VISA document is already on file. Uploading a new file
-                        will replace it.
-                      </p>
-                    )}
-                  </Field>
-                </>
-              )}
-            </Section>
-
-            <Section title="4. Travel details">
+            <Section title="3. Travel details">
               <p className="text-xs text-zinc-500">
                 Resort check-in is from 3:00 PM. Checkout is by 11:30 AM.
               </p>
@@ -633,7 +634,7 @@ export default function RegistrationForm({
               </div>
             </Section>
 
-            <Section title="5. Pickup from airport / station">
+            <Section title="4. Pickup from airport / station">
               <Field label="Do you need a pickup arranged?">
                 <div className="flex gap-4 mt-1">
                   <label className="flex items-center gap-2 text-sm">
@@ -716,7 +717,7 @@ export default function RegistrationForm({
             </Section>
 
             <Section
-              title="6. Event participation"
+              title="5. Event participation"
               subtitle="For each option, please tell us how many people from your family will attend so the resort can plan accurately."
             >
               <YesNoPax
@@ -751,7 +752,7 @@ export default function RegistrationForm({
             </Section>
 
             <Section
-              title="7. Driver accommodation"
+              title="6. Driver accommodation"
               subtitle="If you are travelling with a personal driver, please let us know if they need a place to stay during the event."
             >
               <Field label="Do you need accommodation arranged for your driver?">
@@ -782,7 +783,7 @@ export default function RegistrationForm({
               </Field>
             </Section>
 
-            <Section title="8. Anything else?">
+            <Section title="7. Anything else?">
               <Field label="Notes for the organizer">
                 <textarea
                   name="notes"
@@ -898,15 +899,15 @@ function MemberVisaUpload({
   mode: Mode;
 }) {
   const hasExisting = !!member.has_existing_visa_document;
-  // VISA required for every guest on first registration
   const required = mode === "create" && !hasExisting;
+  const owner = member.type === "spouse" ? "Spouse's" : "Child's";
 
   return (
     <Field
       label={
         hasExisting
-          ? "Replace VISA page photo (optional — leave empty to keep existing)"
-          : "Upload VISA page photo (required)"
+          ? `Replace ${owner} VISA page photo (optional)`
+          : `Upload ${owner} VISA page photo (required)`
       }
       required={required}
     >
@@ -937,16 +938,16 @@ function MemberIdUpload({
 }) {
   const hasFront = !!member.has_existing_id_document;
   const hasBack = !!member.has_existing_id_document_back;
-  // Front required for every guest (adults and children) on first registration
   const frontRequired = mode === "create" && !hasFront;
+  const owner = member.type === "spouse" ? "Spouse's" : "Child's";
 
   return (
     <>
       <Field
         label={
           hasFront
-            ? "Replace ID photo — FRONT (optional)"
-            : "Upload ID photo — FRONT (required)"
+            ? `Replace ${owner} ID photo — FRONT (optional)`
+            : `Upload ${owner} ID photo — FRONT (required)`
         }
         required={frontRequired}
       >
@@ -967,8 +968,8 @@ function MemberIdUpload({
       <Field
         label={
           hasBack
-            ? "Replace ID photo — BACK (optional)"
-            : "Upload ID photo — BACK (optional, for cards with a back side)"
+            ? `Replace ${owner} ID photo — BACK (optional)`
+            : `Upload ${owner} ID photo — BACK (optional, for cards with a back side)`
         }
       >
         <input
