@@ -128,15 +128,31 @@ export default function RegistrationForm({
   async function handleFormSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (submittingRef.current) return;
-    submittingRef.current = true;
 
+    const formEl = e.currentTarget;
+    const formData = new FormData(formEl);
+
+    // Client-side aggregate file-size check (50 MB combined cap).
+    let totalBytes = 0;
+    for (const [, value] of formData.entries()) {
+      if (value instanceof File) totalBytes += value.size;
+    }
+    const MAX = 50 * 1024 * 1024;
+    if (totalBytes > MAX) {
+      setError(
+        `Total upload size is ${(totalBytes / 1024 / 1024).toFixed(1)} MB — please use smaller / compressed images (max 50 MB total).`
+      );
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+
+    submittingRef.current = true;
     // Force the modal to paint BEFORE we start the (slow) upload.
     flushSync(() => {
       setSubmitting(true);
       setError(null);
     });
 
-    const formData = new FormData(e.currentTarget);
     formData.set("member_count", members.length.toString());
     members.forEach((m, i) => {
       formData.set(`member_${i}_type`, m.type);
@@ -146,15 +162,24 @@ export default function RegistrationForm({
       formData.set(`member_${i}_allergies`, m.allergies);
     });
 
-    const result = await submitAction(formData);
-    if (result && !result.ok) {
-      setError(result.error || "Something went wrong");
+    try {
+      const result = await submitAction(formData);
+      if (result && !result.ok) {
+        setError(result.error || "Something went wrong. Please try again.");
+        setSubmitting(false);
+        submittingRef.current = false;
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+      // On success the server redirects, so we leave the overlay up.
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setError(
+        `Submission failed: ${msg}. If this keeps happening, please try smaller photos or contact Rajan +91-7708366999.`
+      );
       setSubmitting(false);
       submittingRef.current = false;
-      // Scroll to show error
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
-    // On success the server redirects, so we leave the overlay up.
   }
 
   return (
@@ -777,6 +802,7 @@ export default function RegistrationForm({
             <p className="text-xs text-zinc-500 text-center">
               Submitting may take <strong>10 – 30 seconds</strong> while your
               photos upload. Please don&apos;t close the page after clicking.
+              Use compressed photos (under 3 MB each) if you have a slow connection.
             </p>
 
             <button
