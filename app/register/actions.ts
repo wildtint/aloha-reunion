@@ -5,9 +5,6 @@ import { sendConfirmationEmail } from "@/lib/email";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
-// Allow up to 60s for slow mobile uploads (Vercel Hobby caps at 60s)
-export const maxDuration = 60;
-
 type Member = {
   member_type: "spouse" | "child";
   name: string;
