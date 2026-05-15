@@ -15,19 +15,10 @@ type Member = {
   visa_document_path: string | null;
 };
 
-async function uploadIfPresent(
-  supabase: ReturnType<typeof createAdminSupabase>,
-  file: File | null
-): Promise<{ path: string | null; error?: string }> {
-  if (!file || file.size === 0) return { path: null };
-  const ext = file.name.split(".").pop()?.toLowerCase() || "bin";
-  const random = crypto.randomUUID();
-  const path = `${new Date().getFullYear()}/${random}.${ext}`;
-  const { error } = await supabase.storage
-    .from("id-documents")
-    .upload(path, file, { contentType: file.type });
-  if (error) return { path: null, error: error.message };
-  return { path };
+function getPath(formData: FormData, key: string): string | null {
+  // Files are uploaded directly from the browser. Server only receives paths.
+  const v = formData.get(`${key}_path`);
+  return typeof v === "string" && v.trim() !== "" ? v.trim() : null;
 }
 
 async function safeRemove(
@@ -92,57 +83,29 @@ export async function updateRegistration(token: string, formData: FormData) {
     const name = (formData.get(`member_${i}_name`) as string)?.trim();
     if (!name) continue;
 
-    // ID
-    const idUpload = await uploadIfPresent(
-      supabase,
-      formData.get(`member_${i}_id_document`) as File
-    );
-    if (idUpload.error) {
-      return { ok: false, error: `Member ID upload failed: ${idUpload.error}` };
-    }
-    let idPath: string | null = idUpload.path;
-    if (!idPath) {
-      const prev = existingMemberByName.get(name.toLowerCase());
-      if (prev?.id_document_path) {
-        idPath = prev.id_document_path;
-        preservedMemberDocs.push(prev.id_document_path);
-      }
+    const prev = existingMemberByName.get(name.toLowerCase());
+
+    // ID front — new path if uploaded, else keep existing
+    let idPath = getPath(formData, `member_${i}_id_document`);
+    if (!idPath && prev?.id_document_path) {
+      idPath = prev.id_document_path;
+      preservedMemberDocs.push(prev.id_document_path);
     }
 
-    // ID back (optional)
-    const idBackUpload = await uploadIfPresent(
-      supabase,
-      formData.get(`member_${i}_id_document_back`) as File
-    );
-    if (idBackUpload.error) {
-      return { ok: false, error: `Member ID back upload failed: ${idBackUpload.error}` };
-    }
-    let idBackPath: string | null = idBackUpload.path;
-    if (!idBackPath) {
-      const prev = existingMemberByName.get(name.toLowerCase());
-      if (prev?.id_document_back_path) {
-        idBackPath = prev.id_document_back_path;
-        preservedMemberDocs.push(prev.id_document_back_path);
-      }
+    // ID back — same pattern
+    let idBackPath = getPath(formData, `member_${i}_id_document_back`);
+    if (!idBackPath && prev?.id_document_back_path) {
+      idBackPath = prev.id_document_back_path;
+      preservedMemberDocs.push(prev.id_document_back_path);
     }
 
-    // VISA (only if international)
+    // VISA — only if international
     let visaPath: string | null = null;
     if (isInternational) {
-      const visaUpload = await uploadIfPresent(
-        supabase,
-        formData.get(`member_${i}_visa_document`) as File
-      );
-      if (visaUpload.error) {
-        return { ok: false, error: `Member VISA upload failed: ${visaUpload.error}` };
-      }
-      visaPath = visaUpload.path;
-      if (!visaPath) {
-        const prev = existingMemberByName.get(name.toLowerCase());
-        if (prev?.visa_document_path) {
-          visaPath = prev.visa_document_path;
-          preservedMemberDocs.push(prev.visa_document_path);
-        }
+      visaPath = getPath(formData, `member_${i}_visa_document`);
+      if (!visaPath && prev?.visa_document_path) {
+        visaPath = prev.visa_document_path;
+        preservedMemberDocs.push(prev.visa_document_path);
       }
     }
 
@@ -160,55 +123,32 @@ export async function updateRegistration(token: string, formData: FormData) {
     });
   }
 
-  // Optional new primary ID document (front)
+  // Primary ID — replace if a new path arrived, else keep existing.
   let id_document_path = existing.id_document_path as string | null;
-  const oldPrimaryPath = id_document_path;
-  const idUpload = await uploadIfPresent(
-    supabase,
-    formData.get("id_document") as File
-  );
-  if (idUpload.error) {
-    return { ok: false, error: `ID upload failed: ${idUpload.error}` };
-  }
-  if (idUpload.path) {
-    id_document_path = idUpload.path;
-    if (oldPrimaryPath) await safeRemove(supabase, [oldPrimaryPath]);
+  const newPrimaryPath = getPath(formData, "id_document");
+  if (newPrimaryPath) {
+    if (id_document_path) await safeRemove(supabase, [id_document_path]);
+    id_document_path = newPrimaryPath;
   }
 
-  // Optional new primary ID document (back)
   let id_document_back_path = existing.id_document_back_path as string | null;
-  const oldPrimaryBackPath = id_document_back_path;
-  const idBackUpload = await uploadIfPresent(
-    supabase,
-    formData.get("id_document_back") as File
-  );
-  if (idBackUpload.error) {
-    return { ok: false, error: `ID back upload failed: ${idBackUpload.error}` };
-  }
-  if (idBackUpload.path) {
-    id_document_back_path = idBackUpload.path;
-    if (oldPrimaryBackPath) await safeRemove(supabase, [oldPrimaryBackPath]);
+  const newPrimaryBackPath = getPath(formData, "id_document_back");
+  if (newPrimaryBackPath) {
+    if (id_document_back_path) await safeRemove(supabase, [id_document_back_path]);
+    id_document_back_path = newPrimaryBackPath;
   }
 
-  // Optional new VISA document — based on residence country
   const idType = formData.get("id_type") as "aadhaar" | "passport";
   let visa_document_path = existing.visa_document_path as string | null;
-  const oldVisaPath = visa_document_path;
   if (isInternational) {
-    const visaUpload = await uploadIfPresent(
-      supabase,
-      formData.get("visa_document") as File
-    );
-    if (visaUpload.error) {
-      return { ok: false, error: `VISA upload failed: ${visaUpload.error}` };
-    }
-    if (visaUpload.path) {
-      visa_document_path = visaUpload.path;
-      if (oldVisaPath) await safeRemove(supabase, [oldVisaPath]);
+    const newVisaPath = getPath(formData, "visa_document");
+    if (newVisaPath) {
+      if (visa_document_path) await safeRemove(supabase, [visa_document_path]);
+      visa_document_path = newVisaPath;
     }
   } else {
     // Switched to India — drop any existing primary visa doc
-    if (oldVisaPath) await safeRemove(supabase, [oldVisaPath]);
+    if (visa_document_path) await safeRemove(supabase, [visa_document_path]);
     visa_document_path = null;
   }
 

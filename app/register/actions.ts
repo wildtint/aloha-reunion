@@ -16,19 +16,12 @@ type Member = {
   visa_document_path: string | null;
 };
 
-async function uploadIfPresent(
-  supabase: ReturnType<typeof createAdminSupabase>,
-  file: File | null
-): Promise<{ path: string | null; error?: string }> {
-  if (!file || file.size === 0) return { path: null };
-  const ext = file.name.split(".").pop()?.toLowerCase() || "bin";
-  const random = crypto.randomUUID();
-  const path = `${new Date().getFullYear()}/${random}.${ext}`;
-  const { error } = await supabase.storage
-    .from("id-documents")
-    .upload(path, file, { contentType: file.type });
-  if (error) return { path: null, error: error.message };
-  return { path };
+function getPath(formData: FormData, key: string): string | null {
+  // Files are now uploaded directly from the browser to Supabase Storage
+  // (bypassing Vercel's 4.5 MB request-body limit). The browser sends the
+  // resulting storage path back to us in `${key}_path`.
+  const v = formData.get(`${key}_path`);
+  return typeof v === "string" && v.trim() !== "" ? v.trim() : null;
 }
 
 export async function submitRegistration(formData: FormData) {
@@ -39,34 +32,33 @@ export async function submitRegistration(formData: FormData) {
   const isInternational =
     residenceCountry !== "" && residenceCountry.toLowerCase() !== "india";
 
-  // Server-side validation backstop — re-check required uploads
-  const primaryIdFile = formData.get("id_document") as File | null;
-  if (!primaryIdFile || primaryIdFile.size === 0) {
+  // Server-side validation backstop — re-check required uploaded paths
+  const primaryIdPath = getPath(formData, "id_document");
+  if (!primaryIdPath) {
     return { ok: false, error: "ID photo is required for the primary registrant." };
   }
-  if (isInternational) {
-    const primaryVisaFile = formData.get("visa_document") as File | null;
-    if (!primaryVisaFile || primaryVisaFile.size === 0) {
-      return {
-        ok: false,
-        error: "VISA page photo is required when the country of residence is outside India.",
-      };
-    }
+  const primaryIdBackPath = getPath(formData, "id_document_back");
+  const primaryVisaPath = isInternational
+    ? getPath(formData, "visa_document")
+    : null;
+  if (isInternational && !primaryVisaPath) {
+    return {
+      ok: false,
+      error:
+        "VISA page photo is required when the country of residence is outside India.",
+    };
   }
   const memberCount = parseInt((formData.get("member_count") as string) || "0", 10);
   for (let i = 0; i < memberCount; i++) {
     const memberName = (formData.get(`member_${i}_name`) as string)?.trim();
     if (!memberName) continue;
-    const idF = formData.get(`member_${i}_id_document`) as File | null;
-    if (!idF || idF.size === 0) {
-      return {
-        ok: false,
-        error: `ID photo is required for ${memberName}.`,
-      };
+    const memberIdPath = getPath(formData, `member_${i}_id_document`);
+    if (!memberIdPath) {
+      return { ok: false, error: `ID photo is required for ${memberName}.` };
     }
     if (isInternational) {
-      const vF = formData.get(`member_${i}_visa_document`) as File | null;
-      if (!vF || vF.size === 0) {
+      const memberVisaPath = getPath(formData, `member_${i}_visa_document`);
+      if (!memberVisaPath) {
         return {
           ok: false,
           error: `VISA page photo is required for ${memberName}.`,
@@ -75,36 +67,11 @@ export async function submitRegistration(formData: FormData) {
     }
   }
 
-  // Extract members + their ID and (if international) VISA uploads
+  // Build member records (paths already uploaded client-side)
   const members: Member[] = [];
   for (let i = 0; i < memberCount; i++) {
     const name = (formData.get(`member_${i}_name`) as string)?.trim();
     if (!name) continue;
-    const idUpload = await uploadIfPresent(
-      supabase,
-      formData.get(`member_${i}_id_document`) as File
-    );
-    if (idUpload.error) {
-      return { ok: false, error: `Member ID upload failed: ${idUpload.error}` };
-    }
-    const idBackUpload = await uploadIfPresent(
-      supabase,
-      formData.get(`member_${i}_id_document_back`) as File
-    );
-    if (idBackUpload.error) {
-      return { ok: false, error: `Member ID back upload failed: ${idBackUpload.error}` };
-    }
-    let visaPath: string | null = null;
-    if (isInternational) {
-      const visaUpload = await uploadIfPresent(
-        supabase,
-        formData.get(`member_${i}_visa_document`) as File
-      );
-      if (visaUpload.error) {
-        return { ok: false, error: `Member VISA upload failed: ${visaUpload.error}` };
-      }
-      visaPath = visaUpload.path;
-    }
     members.push({
       member_type: formData.get(`member_${i}_type`) as "spouse" | "child",
       name,
@@ -113,38 +80,15 @@ export async function submitRegistration(formData: FormData) {
         : null,
       meal_pref: (formData.get(`member_${i}_meal`) as string) || null,
       allergies: (formData.get(`member_${i}_allergies`) as string) || null,
-      id_document_path: idUpload.path,
-      id_document_back_path: idBackUpload.path,
-      visa_document_path: visaPath,
+      id_document_path: getPath(formData, `member_${i}_id_document`),
+      id_document_back_path: getPath(formData, `member_${i}_id_document_back`),
+      visa_document_path: isInternational
+        ? getPath(formData, `member_${i}_visa_document`)
+        : null,
     });
   }
 
-  // Primary ID document (front + optional back)
-  const idUpload = await uploadIfPresent(supabase, primaryIdFile);
-  if (idUpload.error) {
-    return { ok: false, error: `ID upload failed: ${idUpload.error}` };
-  }
-  const idBackUpload = await uploadIfPresent(
-    supabase,
-    formData.get("id_document_back") as File
-  );
-  if (idBackUpload.error) {
-    return { ok: false, error: `ID back upload failed: ${idBackUpload.error}` };
-  }
-
-  // VISA document (international guests only — based on residence country)
   const idType = formData.get("id_type") as "aadhaar" | "passport";
-  let visa_document_path: string | null = null;
-  if (isInternational) {
-    const visaUpload = await uploadIfPresent(
-      supabase,
-      formData.get("visa_document") as File
-    );
-    if (visaUpload.error) {
-      return { ok: false, error: `VISA upload failed: ${visaUpload.error}` };
-    }
-    visa_document_path = visaUpload.path;
-  }
 
   const family = {
     registrant_name: (formData.get("registrant_name") as string).trim(),
@@ -157,9 +101,9 @@ export async function submitRegistration(formData: FormData) {
     id_type: idType,
     id_number: (formData.get("id_number") as string).trim(),
     passport_country: idType === "passport" ? residenceCountry || null : null,
-    id_document_path: idUpload.path,
-    id_document_back_path: idBackUpload.path,
-    visa_document_path,
+    id_document_path: primaryIdPath,
+    id_document_back_path: primaryIdBackPath,
+    visa_document_path: primaryVisaPath,
 
     arrival_date: formData.get("arrival_date") as string,
     arrival_time: formData.get("arrival_time") as string,

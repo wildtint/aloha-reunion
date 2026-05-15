@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { flushSync } from "react-dom";
+import { uploadDocFromBrowser } from "@/lib/uploads";
 
 export type Mode = "create" | "edit";
 
@@ -104,6 +105,7 @@ export default function RegistrationForm({
   const [pickupPoint, setPickupPoint] = useState(initial?.pickup_point || "");
   const [members, setMembers] = useState<InitialMember[]>(initial?.members || []);
   const [submitting, setSubmitting] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<{ done: number; total: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const submittingRef = useRef(false);
   const familySize = members.length + 1;
@@ -162,7 +164,39 @@ export default function RegistrationForm({
       formData.set(`member_${i}_allergies`, m.allergies);
     });
 
+    // Collect every file field that has an actual file picked
+    const fileFields: { key: string; file: File }[] = [];
+    const allFileKeys = [
+      "id_document",
+      "id_document_back",
+      "visa_document",
+      ...Array.from({ length: members.length }, (_, i) => [
+        `member_${i}_id_document`,
+        `member_${i}_id_document_back`,
+        `member_${i}_visa_document`,
+      ]).flat(),
+    ];
+    for (const key of allFileKeys) {
+      const f = formData.get(key);
+      if (f instanceof File && f.size > 0) {
+        fileFields.push({ key, file: f });
+      }
+      // Remove file blob from formData; we'll send paths instead
+      formData.delete(key);
+    }
+
     try {
+      // Upload each file directly to Supabase Storage (browser → Supabase)
+      // bypassing Vercel's 4.5 MB serverless body limit.
+      setUploadProgress({ done: 0, total: fileFields.length });
+      for (let i = 0; i < fileFields.length; i++) {
+        const { key, file } = fileFields[i];
+        const path = await uploadDocFromBrowser(file);
+        formData.set(`${key}_path`, path);
+        setUploadProgress({ done: i + 1, total: fileFields.length });
+      }
+      setUploadProgress(null);
+
       const result = await submitAction(formData);
       if (result && !result.ok) {
         setError(result.error || "Something went wrong. Please try again.");
@@ -173,6 +207,7 @@ export default function RegistrationForm({
       // On success the server redirects, so we leave the overlay up.
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
+      setUploadProgress(null);
       setError(
         `Submission failed: ${msg}. If this keeps happening, please try smaller photos or contact Rajan +91-7708366999.`
       );
@@ -197,6 +232,11 @@ export default function RegistrationForm({
             <p className="text-sm text-zinc-600">
               Please wait. Do not close or refresh this page.
             </p>
+            {uploadProgress && uploadProgress.total > 0 && (
+              <p className="text-sm font-medium text-zinc-900 mt-3">
+                Uploading photo {uploadProgress.done} of {uploadProgress.total}…
+              </p>
+            )}
             {mode === "create" && (
               <p className="text-xs text-zinc-500 mt-3 leading-relaxed">
                 This may take <strong>10 – 30 seconds</strong> while your ID and
